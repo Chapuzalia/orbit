@@ -2,13 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, Loader2, GitBranch, Mail, ShieldCheck, Server } from 'lucide-react'
+import { Activity, ArrowUpRight, Eye, EyeOff, Layers, Loader2, Mail, Server, ShieldCheck } from 'lucide-react'
 import { Logo } from '@/components/logo'
 import { Input, Label } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { loginWithProvider, signIn } from '@/lib/auth'
+import { signIn } from '@/lib/auth'
 import { isSupabaseConfigured } from '@/lib/supabase-client'
-import { cn } from '@/lib/utils'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -40,42 +39,17 @@ export default function LoginPage() {
     }
   }
 
-  const oauth = (provider) => {
-    setError('')
-    setLoading(true)
-    try {
-      loginWithProvider(provider)
-    } catch (err) {
-      setError(err.message || 'No se pudo iniciar sesion.')
-      setLoading(false)
-    }
-  }
-
   return (
-    <div className="flex min-h-svh bg-background">
-      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16">
+    <div className="grid min-h-svh bg-background lg:grid-cols-[0.92fr_1.08fr]">
+      <div className="flex w-full flex-col justify-center px-6 py-10 sm:px-10 lg:px-16">
         <div className="mx-auto w-full max-w-sm">
-          <Logo className="mb-8" textClassName="text-xl" />
-          <h1 className="text-2xl font-semibold tracking-tight text-balance">Bienvenido de nuevo</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Accede al panel de gestion interna de NorthStack Studio.
-          </p>
-
-          <div className="mt-8 flex flex-col gap-3">
-            <Button variant="outline" className="w-full" onClick={() => oauth('google')} disabled={loading}>
-              <GoogleIcon className="h-4 w-4" />
-              Continuar con Google
-            </Button>
-            <Button variant="outline" className="w-full" onClick={() => oauth('github')} disabled={loading}>
-              <GitBranch className="h-4 w-4" />
-              Continuar con GitHub
-            </Button>
-          </div>
-
-          <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />
-            o con tu email
-            <span className="h-px flex-1 bg-border" />
+          <Logo className="mb-10" markClassName="h-10 w-10 rounded-xl" textClassName="text-2xl" />
+          <div className="mb-8">
+            <p className="mb-3 text-xs font-semibold uppercase text-primary">Alteil Solutions</p>
+            <h1 className="text-3xl font-semibold leading-tight text-balance">Bienvenido de nuevo</h1>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Accede a Orbit, el panel operativo para coordinar proyectos, equipo y servidores.
+            </p>
           </div>
 
           <form onSubmit={submit} className="flex flex-col gap-4">
@@ -139,67 +113,85 @@ export default function LoginPage() {
               </p>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" size="lg" className="w-full" disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               Iniciar sesion
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            Acceso gestionado con Supabase Auth.
+          <p className="mt-6 text-xs leading-5 text-muted-foreground">
+            Orbit mantiene la sesion protegida y vinculada al workspace activo.
           </p>
         </div>
       </div>
 
-      <div className="relative hidden overflow-hidden bg-primary lg:flex lg:w-1/2">
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.6) 0, transparent 40%), radial-gradient(circle at 80% 60%, rgba(255,255,255,0.4) 0, transparent 45%)',
-          }}
-        />
-        <div className="relative z-10 flex flex-col justify-between p-12 text-primary-foreground">
-          <Logo textClassName="text-xl text-primary-foreground" className="[&_div]:bg-primary-foreground [&_div]:text-primary" />
-          <div className="max-w-md">
-            <h2 className="text-3xl font-semibold leading-tight text-balance">
-              Toda tu consultora de software en un unico panel.
+      <div className="relative hidden overflow-hidden bg-[var(--brand-navy)] text-white lg:flex">
+        <div className="absolute inset-y-0 left-0 w-px bg-white/10" aria-hidden="true" />
+        <div className="absolute right-12 top-12 h-24 w-24 border-r border-t border-white/10" aria-hidden="true" />
+        <div className="absolute bottom-12 left-12 h-24 w-24 border-b border-l border-white/10" aria-hidden="true" />
+        <div className="relative z-10 flex w-full flex-col justify-between p-12">
+          <Logo
+            markClassName="border-white/10 bg-white shadow-none"
+            textClassName="text-xl text-white"
+          />
+          <div className="max-w-xl">
+            <p className="mb-4 text-sm font-medium text-[#7DD3C7]">Orbit para Alteil Solutions</p>
+            <h2 className="max-w-lg text-4xl font-semibold leading-tight text-balance">
+              Operaciones claras para equipos de software en movimiento.
             </h2>
-            <p className="mt-4 text-primary-foreground/80 text-pretty">
-              Proyectos, repositorios, equipo, clientes, facturacion y servidores VPS conectados y
-              en tiempo real.
+            <p className="mt-5 max-w-md text-sm leading-6 text-white/70">
+              Una interfaz calmada para decidir rapido, detectar riesgos y mantener el trabajo alineado.
             </p>
-            <div className="mt-8 flex flex-col gap-3">
-              <Feature icon={GitBranch} text="Actividad de GitHub sincronizada con tus proyectos" />
-              <Feature icon={Server} text="Monitorizacion de servidores VPS con alertas" />
-              <Feature icon={ShieldCheck} text="Roles, permisos y seguridad por organizacion" />
+
+            <div className="mt-10 grid max-w-xl grid-cols-2 gap-3">
+              <PanelStat icon={Layers} label="Proyectos activos" value="24" delta="+8%" />
+              <PanelStat icon={Server} label="Servidores online" value="98.6%" delta="+4.3%" />
+              <PanelStat icon={ShieldCheck} label="Entregas a tiempo" value="91%" delta="+12%" />
+              <PanelStat icon={Activity} label="Alertas abiertas" value="3" delta="-2" accent />
+            </div>
+
+            <div className="mt-4 h-28 max-w-xl rounded-lg border border-white/10 bg-white/[0.06] p-4">
+              <div className="mb-3 flex items-center justify-between text-xs text-white/60">
+                <span>Ritmo semanal</span>
+                <span className="inline-flex items-center gap-1 text-[#7DD3C7]">
+                  estable <ArrowUpRight className="h-3.5 w-3.5" />
+                </span>
+              </div>
+              <svg viewBox="0 0 420 72" className="h-16 w-full" fill="none" aria-hidden="true">
+                <path
+                  d="M4 57C38 57 38 40 72 40C106 40 106 26 140 26C174 26 174 44 208 44C242 44 242 18 276 18C310 18 310 35 344 35C378 35 378 12 416 12"
+                  stroke="#14B8A6"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M4 57C38 57 38 40 72 40C106 40 106 26 140 26C174 26 174 44 208 44C242 44 242 18 276 18C310 18 310 35 344 35C378 35 378 12 416 12V72H4V57Z"
+                  fill="#14B8A6"
+                  opacity="0.12"
+                />
+              </svg>
             </div>
           </div>
-          <p className="text-sm text-primary-foreground/70">NorthStack Studio - Panel interno</p>
+          <p className="text-sm text-white/55">Moderno, fiable y preciso.</p>
         </div>
       </div>
     </div>
   )
 }
 
-function Feature({ icon: Icon, text }) {
+function PanelStat({ icon: Icon, label, value, delta, accent = false }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-foreground/15">
-        <Icon className="h-4.5 w-4.5" />
+    <div className="rounded-lg border border-white/10 bg-white/[0.08] p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <span className="flex h-9 w-9 items-center justify-center rounded-md bg-white/10 text-[#7DD3C7]">
+          <Icon className="h-4.5 w-4.5" />
+        </span>
+        <span className={accent ? 'text-xs font-medium text-[#FF8A65]' : 'text-xs font-medium text-[#7DD3C7]'}>
+          {delta}
+        </span>
       </div>
-      <span className="text-sm text-primary-foreground/90">{text}</span>
+      <p className="text-2xl font-semibold leading-none">{value}</p>
+      <p className="mt-2 text-xs text-white/60">{label}</p>
     </div>
-  )
-}
-
-function GoogleIcon({ className }) {
-  return (
-    <svg viewBox="0 0 24 24" className={cn(className)} aria-hidden="true">
-      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1Z" />
-      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z" />
-      <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z" />
-      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38Z" />
-    </svg>
   )
 }

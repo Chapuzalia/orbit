@@ -1,9 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { Menu, Search, Bell, LogOut, User, Settings as SettingsIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Menu, Search, Bell, LogOut, User, Settings as SettingsIcon, Loader2 } from 'lucide-react'
 import { Avatar } from '@/components/ui/avatar'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Dropdown, DropdownItem, DropdownSeparator } from '@/components/ui/dropdown'
@@ -13,11 +12,14 @@ import { logout } from '@/lib/auth'
 export function AppHeader({ onOpenSidebar, onOpenSearch }) {
   const router = useRouter()
   const { currentUser: user, notifications } = useAppData()
+  const [loggingOut, setLoggingOut] = useState(false)
   const unread = notifications.filter((n) => !n.read).length
 
   async function handleLogout() {
+    if (loggingOut) return
+    setLoggingOut(true)
     await logout()
-    router.push('/login')
+    router.replace('/login')
   }
 
   return (
@@ -94,8 +96,9 @@ export function AppHeader({ onOpenSidebar, onOpenSearch }) {
             <SettingsIcon className="mr-2 h-4 w-4" /> Settings
           </DropdownItem>
           <DropdownSeparator />
-          <DropdownItem onSelect={handleLogout} destructive>
-            <LogOut className="mr-2 h-4 w-4" /> Log out
+          <DropdownItem onSelect={handleLogout} destructive disabled={loggingOut}>
+            {loggingOut ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
+            {loggingOut ? 'Cerrando sesion...' : 'Cerrar sesion'}
           </DropdownItem>
         </Dropdown>
       </div>

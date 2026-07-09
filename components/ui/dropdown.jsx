@@ -40,14 +40,36 @@ export function Dropdown({ trigger, children, align = 'end', className }) {
   )
 }
 
-export function DropdownItem({ className, icon: Icon, children, ...props }) {
+export function DropdownItem({
+  className,
+  icon: Icon,
+  children,
+  onClick,
+  onSelect,
+  destructive = false,
+  disabled = false,
+  type = 'button',
+  ...props
+}) {
+  const handleClick = (event) => {
+    onClick?.(event)
+    if (!event.defaultPrevented) {
+      onSelect?.(event)
+    }
+  }
+
   return (
     <button
+      {...props}
+      type={type}
+      disabled={disabled}
+      onClick={handleClick}
       className={cn(
         'flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+        destructive && 'text-destructive hover:bg-destructive/10 hover:text-destructive',
+        disabled && 'pointer-events-none opacity-50',
         className,
       )}
-      {...props}
     >
       {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
       {children}
