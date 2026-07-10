@@ -38,6 +38,7 @@ const EMPTY_ROWS = {
   todo_items: [],
   user_preferences: [],
   integrations: [],
+  credentials: [],
 }
 
 const asArray = (value) => (Array.isArray(value) ? value : [])
@@ -345,6 +346,24 @@ function meetingFromRow(row) {
   }
 }
 
+function credentialFromRow(row) {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    createdBy: row.created_by,
+    name: row.name,
+    category: row.category || 'other',
+    site: row.site,
+    username: row.username,
+    email: row.email,
+    password: row.password,
+    recovery: row.recovery,
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
 function todoItemFromRow(row) {
   return {
     id: row.id,
@@ -482,6 +501,7 @@ function buildData(rows, session) {
       desc: row.description,
       connected: Boolean(row.connected),
     })),
+    credentials: rows.credentials.map(credentialFromRow),
     dashboardMetrics,
   }
 }
@@ -511,6 +531,7 @@ async function fetchRows() {
     todo_items,
     user_preferences,
     integrations,
+    credentials,
   ] = await Promise.all([
     selectAll('organizations', { order: 'created_at.asc' }),
     selectAll('members', { order: 'name.asc' }),
@@ -535,6 +556,7 @@ async function fetchRows() {
     selectAll('todo_items', { order: 'sort_order.asc' }),
     selectAll('user_preferences', { order: 'created_at.asc' }),
     selectAll('integrations', { order: 'name.asc' }),
+    selectAll('credentials', { order: 'updated_at.desc' }),
   ])
 
   return {
@@ -561,6 +583,7 @@ async function fetchRows() {
     todo_items,
     user_preferences,
     integrations,
+    credentials,
   }
 }
 
@@ -819,6 +842,49 @@ export function AppDataProvider({ children }) {
     return serverFromRow(created)
   }, [data.organization?.id])
 
+  const createCredential = useCallback(async (values) => {
+    const [created] = await insertRow('credentials', {
+      organization_id: data.organization?.id || null,
+      created_by: data.currentUser?.id || null,
+      name: values.name,
+      category: values.category || 'other',
+      site: values.site || null,
+      username: values.username || null,
+      email: values.email || null,
+      password: values.password || null,
+      recovery: values.recovery || null,
+      notes: values.notes || null,
+    })
+    setRows((prev) => ({ ...prev, credentials: [created, ...prev.credentials] }))
+    return credentialFromRow(created)
+  }, [data.currentUser?.id, data.organization?.id])
+
+  const updateCredential = useCallback(async (id, values) => {
+    const [updated] = await updateById('credentials', id, {
+      name: values.name,
+      category: values.category || 'other',
+      site: values.site || null,
+      username: values.username || null,
+      email: values.email || null,
+      password: values.password || null,
+      recovery: values.recovery || null,
+      notes: values.notes || null,
+    })
+    setRows((prev) => ({
+      ...prev,
+      credentials: prev.credentials.map((credential) => (credential.id === id ? updated : credential)),
+    }))
+    return credentialFromRow(updated)
+  }, [])
+
+  const deleteCredential = useCallback(async (id) => {
+    await deleteById('credentials', id)
+    setRows((prev) => ({
+      ...prev,
+      credentials: prev.credentials.filter((credential) => credential.id !== id),
+    }))
+  }, [])
+
   const value = useMemo(
     () => ({
       ...data,
@@ -846,6 +912,9 @@ export function AppDataProvider({ children }) {
       updateProject,
       createTask,
       createServer,
+      createCredential,
+      updateCredential,
+      deleteCredential,
     }),
     [
       data,
@@ -872,6 +941,9 @@ export function AppDataProvider({ children }) {
       updateProject,
       createTask,
       createServer,
+      createCredential,
+      updateCredential,
+      deleteCredential,
     ],
   )
 

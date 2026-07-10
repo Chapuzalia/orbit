@@ -528,6 +528,22 @@ create table if not exists public.integrations (
   unique (organization_id, name)
 );
 
+create table if not exists public.credentials (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid references public.organizations(id) on delete cascade,
+  created_by uuid references public.members(id) on delete set null,
+  name text not null,
+  category text not null default 'other',
+  site text,
+  username text,
+  email text,
+  password text,
+  recovery text,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create index if not exists idx_members_organization on public.members(organization_id);
 create index if not exists idx_members_auth_user on public.members(auth_user_id);
 create index if not exists idx_clients_organization on public.clients(organization_id);
@@ -547,6 +563,8 @@ create index if not exists idx_payments_invoice on public.payments(invoice_id);
 create index if not exists idx_notifications_member on public.notifications(member_id);
 create index if not exists idx_meetings_start on public.meetings(start);
 create index if not exists idx_todo_items_list on public.todo_items(list_id);
+create index if not exists idx_credentials_organization on public.credentials(organization_id);
+create index if not exists idx_credentials_category on public.credentials(category);
 
 do $$
 declare
@@ -573,7 +591,8 @@ begin
     'todo_lists',
     'todo_items',
     'user_preferences',
-    'integrations'
+    'integrations',
+    'credentials'
   ]
   loop
     execute format('drop trigger if exists set_%s_updated_at on public.%I', tbl, tbl);
@@ -612,7 +631,8 @@ begin
     'todo_lists',
     'todo_items',
     'user_preferences',
-    'integrations'
+    'integrations',
+    'credentials'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);
