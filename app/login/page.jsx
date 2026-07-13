@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Activity, ArrowUpRight, Eye, EyeOff, Layers, Loader2, Mail, Server, ShieldCheck } from 'lucide-react'
 import { Logo } from '@/components/logo'
 import { Input, Label } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { signIn } from '@/lib/auth'
+import { loginWithAuthentik, signIn } from '@/lib/auth'
 import { isSupabaseConfigured } from '@/lib/supabase-client'
 
 export default function LoginPage() {
@@ -16,7 +16,16 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(true)
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [authentikLoading, setAuthentikLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('auth_error') !== 'authentik') return
+
+    setError('No se pudo completar el acceso con Alteil. Intentalo de nuevo.')
+    window.history.replaceState(null, '', '/login')
+  }, [])
 
   const submit = async (e) => {
     e.preventDefault()
@@ -39,6 +48,22 @@ export default function LoginPage() {
     }
   }
 
+  const submitAuthentik = () => {
+    setError('')
+    if (!isSupabaseConfigured()) {
+      setError('Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local.')
+      return
+    }
+
+    setAuthentikLoading(true)
+    try {
+      loginWithAuthentik()
+    } catch (err) {
+      setError(err.message || 'No se pudo iniciar el acceso con Alteil.')
+      setAuthentikLoading(false)
+    }
+  }
+
   return (
     <div className="grid min-h-svh bg-background lg:grid-cols-[0.92fr_1.08fr]">
       <div className="flex w-full flex-col justify-center px-6 py-10 sm:px-10 lg:px-16">
@@ -50,6 +75,24 @@ export default function LoginPage() {
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               Accede a Orbit, el panel operativo para coordinar proyectos, equipo y servidores.
             </p>
+          </div>
+
+          <Button
+            type="button"
+            size="lg"
+            variant="outline"
+            className="mb-6 w-full"
+            onClick={submitAuthentik}
+            disabled={loading || authentikLoading}
+          >
+            {authentikLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+            Acceder con Alteil
+          </Button>
+
+          <div className="mb-6 flex items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">o usa tu cuenta de Orbit</span>
+            <span className="h-px flex-1 bg-border" />
           </div>
 
           <form onSubmit={submit} className="flex flex-col gap-4">
@@ -113,7 +156,7 @@ export default function LoginPage() {
               </p>
             )}
 
-            <Button type="submit" size="lg" className="w-full" disabled={loading}>
+            <Button type="submit" size="lg" className="w-full" disabled={loading || authentikLoading}>
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               Iniciar sesion
             </Button>

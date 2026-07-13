@@ -20,7 +20,12 @@ export function AppShell({ children }) {
     let active = true
 
     async function init() {
-      await handleAuthRedirect()
+      try {
+        await handleAuthRedirect()
+      } catch {
+        if (active) router.replace('/login?auth_error=authentik')
+        return
+      }
       if (!active) return
       if (!isAuthenticated()) {
         router.replace('/login')
