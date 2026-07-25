@@ -47,12 +47,12 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} bg-background`}
     >
-      <Head>
+      <head>
         <meta
           name="sable-verify"
           content="sable-verify-b2cad1533082a7eac1de5f18ab9a3614"
         />
-      </Head>
+      </head>
       <body className="font-sans antialiased">
         <ThemeProvider
           attribute="class"
