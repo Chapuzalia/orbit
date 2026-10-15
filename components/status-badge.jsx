@@ -1,29 +1,19 @@
 import { Badge } from '@/components/ui/badge'
 import {
-  PROJECT_STATUS,
   PRIORITY,
-  TASK_STATUS,
-  MEETING_STATUS,
   CLIENT_STATUS,
   SERVER_STATUS,
   INVOICE_STATUS,
-  AVAILABILITY,
-  PR_STATUS,
 } from '@/lib/constants'
 
 const MAPS = {
-  project: PROJECT_STATUS,
   priority: PRIORITY,
-  task: TASK_STATUS,
-  meeting: MEETING_STATUS,
   client: CLIENT_STATUS,
   server: SERVER_STATUS,
   invoice: INVOICE_STATUS,
-  availability: AVAILABILITY,
-  pr: PR_STATUS,
 }
 
-export function StatusBadge({ type = 'project', value, dot = false, className }) {
+export function StatusBadge({ type = 'client', value, dot = false, className }) {
   const map = MAPS[type] || {}
   const cfg = map[value] || { label: value, tone: 'muted' }
   return (

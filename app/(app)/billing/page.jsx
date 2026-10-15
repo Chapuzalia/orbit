@@ -86,7 +86,7 @@ export default function BillingPage() {
                   {invoices.map((inv) => (
                     <tr key={inv.id} className="border-b border-border last:border-0 hover:bg-accent/50">
                       <td className="px-4 py-3">
-                        <div className="font-medium">{inv.id}</div>
+                        <div className="font-medium">{inv.number}</div>
                         <div className="text-xs text-muted-foreground">{inv.concept}</div>
                       </td>
                       <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">{getClient(inv.clientId)?.name}</td>
@@ -123,7 +123,7 @@ export default function BillingPage() {
                     <tr key={p.id} className="border-b border-border last:border-0 hover:bg-accent/50">
                       <td className="px-4 py-3 font-medium">{getClient(p.clientId)?.name}</td>
                       <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">{p.method}</td>
-                      <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">{p.invoiceId || '—'}</td>
+                      <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">{invoices.find((invoice) => invoice.id === p.invoiceId)?.number || '—'}</td>
                       <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">{formatDate(p.date)}</td>
                       <td className="px-4 py-3 font-semibold">{formatCurrency(p.amount)}</td>
                       <td className="px-4 py-3">

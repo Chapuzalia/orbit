@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${SUPABASE_URL:?SUPABASE_URL is required}"
-: "${SUPABASE_ANON_KEY:?SUPABASE_ANON_KEY is required}"
+: "${POCKETBASE_URL:?POCKETBASE_URL is required}"
 : "${ORBIT_SERVER_ID:?ORBIT_SERVER_ID is required}"
 : "${ORBIT_SERVER_TOKEN:?ORBIT_SERVER_TOKEN is required}"
 
@@ -72,13 +71,11 @@ report_once() {
   started="$(date +%s%3N)"
   http_code="$(
     curl -sS -o /tmp/orbit-agent-response.json -w '%{http_code}' \
-      "${SUPABASE_URL%/}/rest/v1/rpc/report_server_metrics" \
-      -H "apikey: ${SUPABASE_ANON_KEY}" \
-      -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+      "${POCKETBASE_URL%/}/api/orbit/server-metrics" \
+      -H "Authorization: Bearer ${ORBIT_SERVER_TOKEN}" \
       -H "Content-Type: application/json" \
-      -d "$(printf '{"p_server_id":"%s","p_token":"%s","p_cpu":%s,"p_ram":%s,"p_disk":%s,"p_load":%s,"p_latency":0,"p_uptime":"%s","p_status":"%s"}' \
+      -d "$(printf '{"server_id":"%s","cpu":%s,"ram":%s,"disk":%s,"load":%s,"latency":0,"uptime":"%s","status":"%s"}' \
         "$ORBIT_SERVER_ID" \
-        "$ORBIT_SERVER_TOKEN" \
         "$cpu" \
         "$ram" \
         "$disk" \

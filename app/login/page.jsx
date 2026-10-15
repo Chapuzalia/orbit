@@ -7,17 +7,17 @@ import { Logo } from '@/components/logo'
 import { Input, Label } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { loginWithAuthentik, signIn } from '@/lib/auth'
-import { isSupabaseConfigured } from '@/lib/supabase-client'
+import { getPocketBase, isPocketBaseConfigured } from '@/lib/pocketbase-client'
 
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [remember, setRemember] = useState(true)
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
   const [authentikLoading, setAuthentikLoading] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -30,8 +30,8 @@ export default function LoginPage() {
   const submit = async (e) => {
     e.preventDefault()
     setError('')
-    if (!isSupabaseConfigured()) {
-      setError('Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local.')
+    if (!isPocketBaseConfigured()) {
+      setError('Configura NEXT_PUBLIC_POCKETBASE_URL en .env.local.')
       return
     }
     if (!email || !password) {
@@ -48,20 +48,33 @@ export default function LoginPage() {
     }
   }
 
-  const submitAuthentik = () => {
+  const submitAuthentik = async () => {
     setError('')
-    if (!isSupabaseConfigured()) {
-      setError('Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local.')
+    if (!isPocketBaseConfigured()) {
+      setError('Configura NEXT_PUBLIC_POCKETBASE_URL en .env.local.')
       return
     }
 
     setAuthentikLoading(true)
     try {
-      loginWithAuthentik()
+      await loginWithAuthentik()
+      router.push('/dashboard')
     } catch (err) {
       setError(err.message || 'No se pudo iniciar el acceso con Alteil.')
       setAuthentikLoading(false)
     }
+  }
+
+  async function resetPassword() {
+    setError('')
+    setNotice('')
+    if (!email.trim()) { setError('Introduce tu email para recuperar la contrasena.'); return }
+    setLoading(true)
+    try {
+      await getPocketBase().collection('users').requestPasswordReset(email.trim())
+      setNotice('Si existe una cuenta con este email, recibiras las instrucciones de recuperacion.')
+    } catch { setError('No se pudo solicitar la recuperacion. Intentalo de nuevo.') }
+    finally { setLoading(false) }
   }
 
   return (
@@ -73,10 +86,11 @@ export default function LoginPage() {
             <p className="mb-3 text-xs font-semibold uppercase text-primary">Alteil Solutions</p>
             <h1 className="text-3xl font-semibold leading-tight text-balance">Bienvenido de nuevo</h1>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Accede a Orbit, el panel operativo para coordinar proyectos, equipo y servidores.
+              Accede a Orbit, el panel operativo para gestionar clientes, facturacion, credenciales y servidores.
             </p>
           </div>
 
+          {process.env.NEXT_PUBLIC_POCKETBASE_OAUTH_PROVIDER && (<>
           <Button
             type="button"
             size="lg"
@@ -94,6 +108,7 @@ export default function LoginPage() {
             <span className="text-xs text-muted-foreground">o usa tu cuenta de Orbit</span>
             <span className="h-px flex-1 bg-border" />
           </div>
+          </>)}
 
           <form onSubmit={submit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -115,7 +130,7 @@ export default function LoginPage() {
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Contrasena</Label>
-                <button type="button" className="text-xs font-medium text-primary hover:underline">
+                <button type="button" onClick={resetPassword} disabled={loading} className="text-xs font-medium text-primary hover:underline">
                   Has olvidado tu contrasena?
                 </button>
               </div>
@@ -140,16 +155,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                className="h-4 w-4 rounded border-input accent-primary"
-              />
-              Recordarme en este dispositivo
-            </label>
-
+            {notice && <p className="text-sm text-muted-foreground" role="status">{notice}</p>}
             {error && (
               <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
                 {error}
@@ -180,16 +186,16 @@ export default function LoginPage() {
           <div className="max-w-xl">
             <p className="mb-4 text-sm font-medium text-[#7DD3C7]">Orbit para Alteil Solutions</p>
             <h2 className="max-w-lg text-4xl font-semibold leading-tight text-balance">
-              Operaciones claras para equipos de software en movimiento.
+              Clientes, cuentas e infraestructura en un solo lugar.
             </h2>
             <p className="mt-5 max-w-md text-sm leading-6 text-white/70">
               Una interfaz calmada para decidir rapido, detectar riesgos y mantener el trabajo alineado.
             </p>
 
             <div className="mt-10 grid max-w-xl grid-cols-2 gap-3">
-              <PanelStat icon={Layers} label="Proyectos activos" value="24" delta="+8%" />
+              <PanelStat icon={Layers} label="Clientes" value="24" delta="+8%" />
               <PanelStat icon={Server} label="Servidores online" value="98.6%" delta="+4.3%" />
-              <PanelStat icon={ShieldCheck} label="Entregas a tiempo" value="91%" delta="+12%" />
+              <PanelStat icon={ShieldCheck} label="Credenciales" value="91%" delta="+12%" />
               <PanelStat icon={Activity} label="Alertas abiertas" value="3" delta="-2" accent />
             </div>
 

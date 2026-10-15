@@ -7,7 +7,7 @@ import { MobileSidebar } from '@/components/mobile-sidebar'
 import { AppHeader } from '@/components/app-header'
 import { CommandPalette } from '@/components/command-palette'
 import { AppDataProvider } from '@/lib/data-context'
-import { handleAuthRedirect, isAuthenticated } from '@/lib/auth'
+import { isAuthenticated } from '@/lib/auth'
 
 export function AppShell({ children }) {
   const router = useRouter()
@@ -20,12 +20,6 @@ export function AppShell({ children }) {
     let active = true
 
     async function init() {
-      try {
-        await handleAuthRedirect()
-      } catch {
-        if (active) router.replace('/login?auth_error=authentik')
-        return
-      }
       if (!active) return
       if (!isAuthenticated()) {
         router.replace('/login')

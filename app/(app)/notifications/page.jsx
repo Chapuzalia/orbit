@@ -10,12 +10,8 @@ import { relativeTime } from '@/lib/format'
 import { useToast } from '@/components/ui/toaster'
 import {
   Server,
-  GitPullRequest,
   Receipt,
-  CheckSquare,
-  Play,
   Wallet,
-  CalendarDays,
   ShieldCheck,
   UserPlus,
   Bell,
@@ -24,12 +20,8 @@ import {
 
 const ICONS = {
   server: { icon: Server, tone: 'bg-destructive/10 text-destructive' },
-  pr: { icon: GitPullRequest, tone: 'bg-chart-2/15 text-chart-2' },
   invoice: { icon: Receipt, tone: 'bg-warning/15 text-warning' },
-  task: { icon: CheckSquare, tone: 'bg-primary/10 text-primary' },
-  workflow: { icon: Play, tone: 'bg-destructive/10 text-destructive' },
   payment: { icon: Wallet, tone: 'bg-success/10 text-success' },
-  meeting: { icon: CalendarDays, tone: 'bg-purple/10 text-purple' },
   ssl: { icon: ShieldCheck, tone: 'bg-warning/15 text-warning' },
   client: { icon: UserPlus, tone: 'bg-info/10 text-info' },
 }
@@ -55,7 +47,7 @@ export default function NotificationsPage() {
       toast({ title: 'Notificaciones', description: 'Todas marcadas como leidas.' })
     } catch (err) {
       setItems(current)
-      toast({ title: 'No se pudo actualizar', description: err.message || 'Revisa la conexion con Supabase.', tone: 'destructive' })
+      toast({ title: 'No se pudo actualizar', description: err.message || 'Revisa la conexion con PocketBase.', tone: 'destructive' })
     }
   }
   const markRead = async (id) => {

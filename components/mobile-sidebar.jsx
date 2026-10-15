@@ -12,8 +12,8 @@ import { cn } from '@/lib/utils'
 
 export function MobileSidebar({ open, onClose }) {
   const pathname = usePathname()
-  const { organization, projects, tasks, invoices, servers, notifications } = useAppData()
-  const navData = { projects, tasks, invoices, servers, notifications }
+  const { organization, invoices, servers, notifications } = useAppData()
+  const navData = { invoices, servers, notifications }
 
   useEffect(() => {
     if (open) {

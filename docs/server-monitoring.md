@@ -10,14 +10,11 @@ Orbit monitoriza servidores con un agente ligero instalado en cada VPS.
 - Online/offline: cada reporte actualiza `last_check`; la app marca offline si no hay reporte en 3 minutos.
 - Historial: cada reporte crea una fila en `server_metrics`.
 
-## Configuracion en Supabase
+## Configuracion en PocketBase
 
-Ejecuta de nuevo `supabase/schema.sql` en el SQL editor. Es idempotente y anade:
+Aplica el esquema y copia los hooks segun [la guia de migracion](../pocketbase/README.md). Los endpoints son `POST /api/orbit/servers` (usuario autenticado del workspace) y `POST /api/orbit/server-metrics` (token privado del agente). Las tablas de metricas no permiten escrituras directas desde el navegador.
 
-- `servers.agent_token_hash`
-- `server_metrics`
-- `report_server_metrics(...)`
-- `create_monitored_server(...)`
+Los tokens se guardan como hash y no se devuelven al cliente. Cada reporte actualiza el servidor y crea su historial dentro de la misma transaccion.
 
 ## Alta desde la app
 
@@ -38,13 +35,14 @@ sudo install -m 0644 orbit-server-agent.service /etc/systemd/system/orbit-server
 Crea `/etc/orbit-server-agent.env`:
 
 ```bash
-SUPABASE_URL=https://orbit.messigualada.com
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgzNTA3NjAyLCJleHAiOjE5NDExODc2MDJ9.FZyYSubc5JPZyc2xm-hj-2YjZZtmis83lCzd_G47QGI
-ORBIT_SERVER_ID=ec284838-04cb-4253-aacf-efd0b05a02de
-ORBIT_SERVER_TOKEN=a0789a29127fad4067078f2bd140e790cfe40f2c8c2d84a7
+POCKETBASE_URL=https://DOMINIO-POCKETBASE-ORBIT
+ORBIT_SERVER_ID=ID_POCKETBASE_DEL_SERVIDOR
+ORBIT_SERVER_TOKEN=TOKEN_PRIVADO_DEL_AGENTE
 ORBIT_INTERVAL_SECONDS=30
 ORBIT_DISK_PATH=/
 ```
+
+Registra cada servidor desde Orbit y usa el ID y el token que genera el alta. Guarda el archivo de entorno con permisos `0600`.
 
 Arranca el servicio:
 

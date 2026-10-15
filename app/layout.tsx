@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Orbit — Gestión interna para consultoras de software',
   description:
-    'Panel unificado para gestionar proyectos, repositorios, equipo, clientes, facturación y servidores VPS.',
+    'Panel unificado para gestionar clientes, facturación, credenciales y servidores VPS.',
   generator: 'v0.app',
   icons: {
     icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],

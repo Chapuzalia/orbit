@@ -13,3 +13,8 @@ __v0_jsx-dev-runtime.ts
 node_modules
 .next/
 .DS_Store
+
+# PocketBase local data
+.pocketbase-test/
+pocketbase/pb_data/
+*.tsbuildinfo

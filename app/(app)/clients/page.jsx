@@ -27,7 +27,7 @@ export default function ClientsPage() {
   const filtered = useMemo(
     () =>
       clients.filter((c) => {
-        const q = !query || c.name.toLowerCase().includes(query.toLowerCase()) || c.contact.toLowerCase().includes(query.toLowerCase())
+        const q = !query || c.name.toLowerCase().includes(query.toLowerCase()) || (c.contact || '').toLowerCase().includes(query.toLowerCase())
         const s = status === 'all' || c.status === status
         return q && s
       }),
@@ -114,7 +114,6 @@ export default function ClientsPage() {
                 </div>
 
                 <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
-                  <span>{c.activeProjects} proyectos activos</span>
                   <span>Contacto {relativeTime(c.lastContact)}</span>
                 </div>
               </Card>

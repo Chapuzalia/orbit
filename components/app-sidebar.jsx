@@ -13,8 +13,8 @@ import { cn } from '@/lib/utils'
 
 export function AppSidebar({ collapsed, onToggle }) {
   const pathname = usePathname()
-  const { organization, currentUser, projects, tasks, invoices, servers, notifications } = useAppData()
-  const navData = { projects, tasks, invoices, servers, notifications }
+  const { organization, currentUser, invoices, servers, notifications } = useAppData()
+  const navData = { invoices, servers, notifications }
 
   return (
     <aside

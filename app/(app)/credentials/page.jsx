@@ -146,11 +146,11 @@ export default function CredentialsPage() {
         await createCredential(payload)
       }
       setForm(EMPTY_FORM)
-      toast({ title: form.id ? 'Credencial actualizada' : 'Credencial guardada en Supabase', tone: 'success' })
+      toast({ title: form.id ? 'Credencial actualizada' : 'Credencial guardada', tone: 'success' })
     } catch (err) {
       toast({
         title: 'No se pudo guardar',
-        description: err.message || 'Revisa la tabla credentials en Supabase.',
+        description: err.message || 'No se pudo guardar la credencial.',
         tone: 'error',
       })
     } finally {
@@ -186,7 +186,7 @@ export default function CredentialsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Credenciales"
-        description={`${credentials.length} cuentas compartidas en Supabase para servicios, correo y accesos tecnicos`}
+        description={`${credentials.length} cuentas compartidas para servicios, correo y accesos tecnicos`}
         actions={
           <Button onClick={resetForm}>
             <Plus className="h-4 w-4" />

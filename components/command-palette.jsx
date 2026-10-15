@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 export function CommandPalette({ open, onOpenChange }) {
   const router = useRouter()
-  const { projects, clients } = useAppData()
+  const { clients } = useAppData()
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const inputRef = useRef(null)
@@ -21,20 +21,15 @@ export function CommandPalette({ open, onOpenChange }) {
       label: n.label,
       href: n.href,
     }))
-    const proj = projects.map((p) => ({
-      type: 'Project',
-      label: p.name,
-      href: `/projects/${p.id}`,
-    }))
     const cli = clients.map((c) => ({
       type: 'Client',
       label: c.name,
       href: `/clients/${c.id}`,
     }))
-    const all = [...nav, ...proj, ...cli]
+    const all = [...nav, ...cli]
     if (!q) return all.slice(0, 8)
     return all.filter((r) => r.label.toLowerCase().includes(q)).slice(0, 10)
-  }, [clients, projects, query])
+  }, [clients, query])
 
   useEffect(() => {
     setActive(0)
@@ -87,7 +82,7 @@ export function CommandPalette({ open, onOpenChange }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search pages, projects, clients..."
+            placeholder="Search pages, clients..."
             className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <kbd className="hidden rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground sm:block">
