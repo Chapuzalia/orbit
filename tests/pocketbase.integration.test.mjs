@@ -1,10 +1,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
-import { mkdir, mkdtemp, copyFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, copyFile, readFile } from 'node:fs/promises'
+import { DatabaseSync } from 'node:sqlite'
 import { resolve, join } from 'node:path'
 import net from 'node:net'
 import PocketBase from 'pocketbase'
+import { requireWorkspace } from '../lib/workspace.mjs'
+import { fetchServerMetricHistory, SERVER_METRIC_POINTS } from '../lib/server-metrics.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const binary = process.env.POCKETBASE_TEST_BINARY || join(root, '.pocketbase-test', process.platform === 'win32' ? 'pocketbase.exe' : 'pocketbase')
@@ -95,7 +98,7 @@ test('empty installation, new accounts, workspace rules, CRUD and monitoring', {
   assert.equal(server.agent_token_hash, undefined)
   assert.equal(server.status, 'offline')
   await assert.rejects(alice.collection('servers').create({ organization_id: orgA.id, name: 'Bypass' }))
-  const reportMetric = (token, cpu) => fetch(`${url}/api/orbit/server-metrics`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ server_id: server.id, cpu, ram: 20, disk: 30, load: 1, latency: 2, uptime: '1 day' }) })
+  const reportMetric = (token, cpu, serverId = server.id) => fetch(`${url}/api/orbit/server-metrics`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ server_id: serverId, cpu, ram: 20, disk: 30, load: 1, latency: 2, uptime: '1 day' }) })
   assert.equal((await reportMetric('wrong-token', 10)).status, 401)
   assert.equal((await reportMetric(token, 101)).status, 400)
   const response = await reportMetric(token, 91)
@@ -105,6 +108,97 @@ test('empty installation, new accounts, workspace rules, CRUD and monitoring', {
   assert.equal((await alice.collection('servers').getOne(server.id)).status, 'warning')
   assert.equal((await alice.collection('server_metrics').getFullList()).length, 2)
   assert.equal((await bob.collection('server_metrics').getFullList()).length, 0)
+
+  // Reproduce the production failure: login succeeds but an unassigned account
+  // sees no credentials and its create request is rejected by the collection rule.
+  const unassigned = await service.collection('users').create({ name: 'Unassigned', email: 'unassigned@example.com', password, passwordConfirm: password, role: 'user' })
+  const unassignedClient = new PocketBase(url)
+  await unassignedClient.collection('users').authWithPassword(unassigned.email, password)
+  assert.equal((await unassignedClient.collection('credentials').getFullList()).length, 0)
+  assert.throws(() => requireWorkspace(unassignedClient.authStore.record), { code: 'ORBIT_WORKSPACE' })
+  await assert.rejects(unassignedClient.collection('credentials').create({ organization_id: '', created_by: unassigned.id, name: 'Rejected' }), (error) => error.status === 400)
+  assert.throws(() => requireWorkspace(userA, []), { code: 'ORBIT_WORKSPACE' })
+
+  const repair = (await readFile(join(root, 'scripts/fix-credentials-workspace.sql'), 'utf8'))
+    .replaceAll('TU_EMAIL_ORBIT', unassigned.email)
+  const restoredServer = await service.collection('servers').create({ organization_id: orgA.id, name: 'Restored VPS', status: 'offline', domains: [], services: [] })
+  const database = new DatabaseSync(join(directory, 'data', 'data.db'))
+  // Use a real bcrypt hash from this disposable test database to model an
+  // imported agent token, without adding a crypto package or exposing hashes.
+  database.prepare('UPDATE servers SET agent_token_hash = (SELECT password FROM users WHERE id = ?) WHERE id = ?').run(userA.id, restoredServer.id)
+  // Multiple workspaces must require an explicit selection and change no account.
+  assert.throws(() => database.prepare(repair).all(), /NOT NULL/)
+  assert.equal(database.prepare('SELECT organization_id FROM users WHERE id = ?').get(unassigned.id).organization_id, '')
+  const targetedRepair = repair.replace("VALUES ('unassigned@example.com', '')", `VALUES ('unassigned@example.com', '${orgA.id}')`)
+  assert.equal(database.prepare(targetedRepair).all().length, 1)
+  assert.equal(database.prepare('SELECT organization_id FROM users WHERE id = ?').get(userB.id).organization_id, orgB.id)
+  database.close()
+  assert.equal((await reportMetric('wrong-token', 10, restoredServer.id)).status, 401)
+  const restoredReport = await reportMetric(password, 35, restoredServer.id)
+  assert.equal(restoredReport.status, 200, await restoredReport.clone().text())
+  assert.equal((await alice.collection('servers').getOne(restoredServer.id)).status, 'operational')
+
+  await t.test('chart fetches only the latest 48 points for the selected server in one request', async () => {
+    const fixtureServer = await service.collection('servers').create({ organization_id: orgA.id, name: 'History fixture' })
+    const foreignServer = await service.collection('servers').create({ organization_id: orgB.id, name: 'Foreign history' })
+    const fixtureDb = new DatabaseSync(join(directory, 'data', 'data.db'))
+    const insert = fixtureDb.prepare('INSERT INTO server_metrics (id, organization_id, server_id, checked_at, cpu, ram, disk) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    const ids = []
+    const baseTime = Date.now() - 86400000
+    try {
+      fixtureDb.exec('BEGIN')
+      for (let i = 0; i < 1200; i++) {
+        const id = `metric${String(i).padStart(9, '0')}`
+        ids.push(id)
+        const date = new Date(baseTime + i * 30000).toISOString().replace('T', ' ')
+        insert.run(id, orgA.id, fixtureServer.id, date, i % 100, 20, 30)
+      }
+      // More recent readings from other servers must not displace this chart.
+      insert.run('othermetric0001', orgA.id, restoredServer.id, new Date().toISOString().replace('T', ' '), 99, 99, 99)
+      insert.run('othermetric0002', orgB.id, foreignServer.id, new Date().toISOString().replace('T', ' '), 99, 99, 99)
+      fixtureDb.exec('COMMIT')
+    } finally {
+      fixtureDb.close()
+    }
+
+    const requests = []
+    alice.beforeSend = (url, options) => { requests.push(new URLSearchParams(options.query)); return { url, options } }
+    try {
+      assert.deepEqual(await fetchServerMetricHistory(alice, null), [])
+      assert.equal(requests.length, 0)
+      const history = await fetchServerMetricHistory(alice, fixtureServer.id)
+      assert.equal(history.length, SERVER_METRIC_POINTS)
+      assert.deepEqual(history.map((point) => point.id), ids.slice(-48))
+      assert.ok(history.every((point) => point.serverId === fixtureServer.id && point.ram === 20 && point.disk === 30))
+      assert.equal(history[0].cpu, 52)
+      assert.ok(history.every((point, index) => !index || point.checkedAt > history[index - 1].checkedAt))
+      assert.equal(requests.length, 1)
+      const query = requests[0]
+      assert.equal(query.get('page'), '1')
+      assert.equal(query.get('perPage'), '48')
+      assert.equal(query.get('skipTotal'), 'true')
+      assert.equal(query.get('sort'), '-checked_at')
+      assert.equal(query.get('fields'), 'id,server_id,checked_at,cpu,ram,disk')
+      assert.ok(query.get('filter').includes(fixtureServer.id))
+      assert.deepEqual(await fetchServerMetricHistory(alice, foreignServer.id), [])
+      assert.deepEqual(await fetchServerMetricHistory(bob, fixtureServer.id), [])
+      const shortHistory = await fetchServerMetricHistory(alice, restoredServer.id)
+      assert.equal(shortHistory.length, 2)
+      assert.ok(shortHistory.every((point) => point.serverId === restoredServer.id))
+      const controller = new AbortController()
+      controller.abort()
+      await assert.rejects(fetchServerMetricHistory(alice, fixtureServer.id, { signal: controller.signal }), (error) => error.isAbort)
+    } finally {
+      alice.beforeSend = undefined
+    }
+  })
+
+  const sharedCredential = await alice.collection('credentials').create({ organization_id: orgA.id, created_by: userA.id, name: 'Existing credential' })
+  const refreshed = await unassignedClient.collection('users').authRefresh()
+  assert.equal(requireWorkspace(refreshed.record, [orgA, orgB]), orgA.id)
+  assert.ok((await unassignedClient.collection('credentials').getFullList()).some((credential) => credential.id === sharedCredential.id))
+  await unassignedClient.collection('credentials').create({ organization_id: orgA.id, created_by: unassigned.id, name: 'New credential' })
+  await assert.rejects(unassignedClient.collection('clients').getOne(clientB.id))
   alice.authStore.clear()
   assert.equal(alice.authStore.isValid, false)
 })

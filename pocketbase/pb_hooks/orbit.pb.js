@@ -27,7 +27,15 @@ routerAdd('POST', '/api/orbit/server-metrics', (e) => {
   let server;
   try { server = e.app.findRecordById('servers', String(data.server_id || '')); } catch (_) { throw new UnauthorizedError('Token o servidor invalido.'); }
   const hash = server.getString('agent_token_hash');
-  const valid = hash && $security.equal($security.hs256(token, server.getString('organization_id')), hash);
+  let valid = false;
+  if (/^\$2[aby]\$/.test(hash)) {
+    // Restored Supabase agents retain their bcrypt token hashes.
+    const verifier = new Record(e.app.findCollectionByNameOrId('users'));
+    verifier.setRaw('password', verifier.collection().fields.getByName('password').prepareValue(verifier, hash));
+    valid = verifier.validatePassword(token);
+  } else if (hash) {
+    valid = $security.equal($security.hs256(token, server.getString('organization_id')), hash);
+  }
   if (!token || !valid) throw new UnauthorizedError('Token o servidor invalido.');
   ['cpu', 'ram', 'disk'].forEach((key) => {
     if (!Number.isInteger(data[key]) || data[key] < 0 || data[key] > 100) throw new BadRequestError('Porcentaje invalido.');

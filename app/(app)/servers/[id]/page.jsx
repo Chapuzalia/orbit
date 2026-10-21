@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/status-badge'
 import { ServerMetricChart } from '@/components/charts'
 import { useAppData } from '@/lib/data-context'
+import { useServerMetrics } from '@/lib/use-server-metrics'
 import { relativeTime } from '@/lib/format'
 import {
   ArrowLeft,
@@ -37,11 +38,13 @@ function Stat({ icon: Icon, label, value, tone = 'text-foreground' }) {
 
 export default function ServerDetailPage({ params }) {
   const { id } = use(params)
-  const { getServer, getServerMetrics } = useAppData()
+  const { getServer } = useAppData()
   const server = getServer(id)
+  const { history, loading: historyLoading, error: historyError } = useServerMetrics(
+    server && server.status !== 'offline' ? server.id : null,
+  )
   if (!server) notFound()
 
-  const history = getServerMetrics(server.id)
   const usageTone = (v) => (v >= 90 ? 'text-destructive' : v >= 75 ? 'text-warning' : 'text-success')
   const sslExpiringSoon = server.sslExpiry && new Date(server.sslExpiry) < new Date(Date.now() + 30 * 864e5)
 
@@ -85,6 +88,10 @@ export default function ServerDetailPage({ params }) {
           <CardContent>
             {server.status === 'offline' ? (
               <p className="py-12 text-center text-sm text-muted-foreground">Sin datos: servidor sin conexion.</p>
+            ) : historyLoading ? (
+              <p className="py-12 text-center text-sm text-muted-foreground" role="status">Cargando metricas...</p>
+            ) : historyError && history.length === 0 ? (
+              <p className="py-12 text-center text-sm text-muted-foreground" role="status">{historyError}</p>
             ) : history.length === 0 ? (
               <p className="py-12 text-center text-sm text-muted-foreground">Sin historial: instala el agente de monitorizacion en este servidor.</p>
             ) : (

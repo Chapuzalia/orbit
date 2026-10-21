@@ -39,6 +39,14 @@ Orbit inicia sesion contra `users`, no contra `_superusers`. No hay registro pub
 
 Los superusuarios administran el servidor. Sus credenciales nunca deben aparecer en variables `NEXT_PUBLIC_*` de la web.
 
+### Credenciales vacias y altas rechazadas por la regla de acceso
+
+Si puedes iniciar sesion pero no ves credenciales y el log del alta indica `create rule failure: sql: no rows in result set`, comprueba primero que tu cuenta de `users` tiene `organization_id` y que coincide con el workspace de las credenciales. El login no exige ese campo; las reglas de datos si.
+
+`scripts/diagnose-credentials-workspace.sql` muestra la asignacion de la cuenta y los recuentos por workspace, sin mostrar passwords. Sustituye `TU_EMAIL_ORBIT` por tu email antes de ejecutarlo. Si falta la asignacion, puedes corregirla desde el panel en `users` o con `scripts/fix-credentials-workspace.sql`: indica tu email y, si hay varias organizaciones, el ID correcto. El SQL actualiza solo esa cuenta, sin modificar roles ni credenciales.
+
+Despues pulsa Reintentar o recarga Orbit para renovar la informacion de la sesion. Si la asignacion ya era correcta, revisa el resultado del diagnostico antes de cambiarla. La aplicacion muestra un aviso de configuracion cuando falta el workspace o no se puede acceder a el, en lugar de mostrar listas vacias y permitir altas que fallaran.
+
 ## Configurar la web
 
 La URL de la instancia queda pendiente hasta el despliegue. Entonces configura en el entorno de build de la web:

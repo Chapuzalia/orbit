@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { requireWorkspace } from '@/lib/workspace.mjs'
 import {
   deleteById,
   createMonitoredServer,
@@ -18,7 +19,6 @@ const EMPTY_ROWS = {
   organizations: [],
   clients: [],
   servers: [],
-  server_metrics: [],
   invoices: [],
   payments: [],
   subscriptions: [],
@@ -78,25 +78,6 @@ function serverFromRow(row) {
     sslExpiry: row.ssl_expiry,
     lastCheck: row.last_check,
     incidents: Number(row.incidents || 0),
-  }
-}
-
-function serverMetricFromRow(row) {
-  const checkedAt = row.checked_at || row.created_at
-  const d = checkedAt ? new Date(checkedAt) : null
-  return {
-    id: row.id,
-    serverId: row.server_id,
-    organizationId: row.organization_id,
-    cpu: Number(row.cpu || 0),
-    ram: Number(row.ram || 0),
-    disk: Number(row.disk || 0),
-    load: num(row.load),
-    latency: Number(row.latency || 0),
-    uptime: row.uptime,
-    status: row.status || 'operational',
-    checkedAt,
-    t: d ? new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(d) : '',
   }
 }
 
@@ -197,7 +178,6 @@ function buildData(rows, session) {
     .sort((a, b) => a.sortOrder - b.sortOrder)
   return {
     organization, currentUser, clients, invoices, servers, revenueByMonth,
-    serverMetrics: rows.server_metrics.map(serverMetricFromRow),
     payments: rows.payments.map(paymentFromRow),
     subscriptions: rows.subscriptions.map(subscriptionFromRow),
     notifications: rows.notifications.map(notificationFromRow),
@@ -216,7 +196,7 @@ function buildData(rows, session) {
 
 async function fetchRows() {
   const orders = {
-    organizations: 'created_at.asc', clients: 'name.asc', servers: 'name.asc', server_metrics: 'checked_at.desc',
+    organizations: 'created_at.asc', clients: 'name.asc', servers: 'name.asc',
     invoices: 'issued.desc', payments: 'date.desc', subscriptions: 'created_at.desc', revenue_by_month: 'sort_order.asc',
     notifications: 'created_at.desc', activity: 'created_at.desc', user_preferences: 'created_at.asc',
     integrations: 'name.asc', credentials: 'updated_at.desc',
@@ -230,20 +210,26 @@ export function AppDataProvider({ children }) {
   const [session, setSession] = useState(() => getStoredSession())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [errorCode, setErrorCode] = useState('')
 
   const refresh = useCallback(async () => {
     setLoading(true)
     setError('')
+    setErrorCode('')
     try {
       let nextSession = getStoredSession()
       if (nextSession) {
         nextSession = { ...nextSession, user: await getAuthUser() }
       }
       if (!nextSession) throw new Error('Sesion expirada. Inicia sesion de nuevo.')
+      requireWorkspace(nextSession.user)
+      const nextRows = await fetchRows()
+      requireWorkspace(nextSession.user, nextRows.organizations)
       setSession(nextSession)
-      setRows(await fetchRows())
+      setRows(nextRows)
     } catch (err) {
       setError(err.message || 'No se pudieron cargar los datos.')
+      setErrorCode(err.code || '')
     } finally {
       setLoading(false)
     }
@@ -258,11 +244,8 @@ export function AppDataProvider({ children }) {
     let active = true
     const timer = window.setInterval(async () => {
       try {
-        const [servers, server_metrics] = await Promise.all([
-          selectAll('servers', { order: 'name.asc' }),
-          selectAll('server_metrics', { order: 'checked_at.desc' }),
-        ])
-        if (active) setRows((prev) => ({ ...prev, servers, server_metrics }))
+        const servers = await selectAll('servers', { order: 'name.asc' })
+        if (active) setRows((prev) => ({ ...prev, servers }))
       } catch { /* Keep the last known metrics during a temporary outage. */ }
     }, 30000)
     return () => { active = false; window.clearInterval(timer) }
@@ -272,15 +255,6 @@ export function AppDataProvider({ children }) {
 
   const getClient = useCallback((id) => data.clients.find((client) => client.id === id), [data.clients])
   const getServer = useCallback((id) => data.servers.find((server) => server.id === id), [data.servers])
-  const getServerMetrics = useCallback(
-    (id, limit = 48) =>
-      data.serverMetrics
-        .filter((metric) => metric.serverId === id)
-        .sort((a, b) => new Date(a.checkedAt) - new Date(b.checkedAt))
-        .slice(-limit),
-    [data.serverMetrics],
-  )
-
   const markNotificationRead = useCallback(async (id) => {
     await updateById('notifications', id, { read: true })
     setRows((prev) => ({
@@ -406,7 +380,6 @@ export function AppDataProvider({ children }) {
       refresh,
       getClient,
       getServer,
-      getServerMetrics,
       markNotificationRead,
       markAllNotificationsRead,
       updateCurrentUser,
@@ -426,7 +399,6 @@ export function AppDataProvider({ children }) {
       refresh,
       getClient,
       getServer,
-      getServerMetrics,
       markNotificationRead,
       markAllNotificationsRead,
       updateCurrentUser,
@@ -454,7 +426,7 @@ export function AppDataProvider({ children }) {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background px-6 text-center">
         <div className="max-w-md rounded-lg border border-border bg-card p-6">
-          <h1 className="text-lg font-semibold">No se pudo conectar con PocketBase</h1>
+          <h1 className="text-lg font-semibold">{errorCode === 'ORBIT_WORKSPACE' ? 'Revisa el workspace de tu cuenta' : 'No se pudo conectar con PocketBase'}</h1>
           <p className="mt-2 text-sm text-muted-foreground">{error}</p>
           <div className="mt-4 flex justify-center gap-2">
             <button
