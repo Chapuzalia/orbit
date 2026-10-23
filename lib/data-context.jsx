@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { requireWorkspace } from '@/lib/workspace.mjs'
 import { billingValues } from '@/lib/client-billing.mjs'
+import { expenseValues } from '@/lib/expenses.mjs'
 import {
   deleteById,
   createMonitoredServer,
@@ -19,6 +20,7 @@ const DataContext = createContext(null)
 const EMPTY_ROWS = {
   organizations: [],
   clients: [],
+  expenses: [],
   sales_reps: [],
   servers: [],
   invoices: [],
@@ -88,6 +90,12 @@ function serverFromRow(row) {
 
 function salesRepFromRow(row) {
   return { id: row.id, organizationId: row.organization_id, name: row.name, email: row.email, phone: row.phone, notes: row.notes }
+}
+
+function expenseFromRow(row) {
+  return { id: row.id, organizationId: row.organization_id, name: row.name, supplier: row.supplier,
+    category: row.category, netAmount: num(row.net_amount), vatType: row.vat_type, vatRate: num(row.vat_rate),
+    billingCycle: row.billing_cycle, status: row.status, chargeDate: row.charge_date?.slice(0, 10) || '', notes: row.notes }
 }
 
 function invoiceFromRow(row) {
@@ -188,6 +196,7 @@ function buildData(rows, session) {
   return {
     organization, currentUser, clients, invoices, servers, revenueByMonth,
     salesReps: rows.sales_reps.map(salesRepFromRow),
+    expenses: rows.expenses.map(expenseFromRow),
     payments: rows.payments.map(paymentFromRow),
     subscriptions: rows.subscriptions.map(subscriptionFromRow),
     notifications: rows.notifications.map(notificationFromRow),
@@ -209,7 +218,7 @@ async function fetchRows() {
     organizations: 'created_at.asc', clients: 'name.asc', sales_reps: 'name.asc', servers: 'name.asc',
     invoices: 'issued.desc', payments: 'date.desc', subscriptions: 'created_at.desc', revenue_by_month: 'sort_order.asc',
     notifications: 'created_at.desc', activity: 'created_at.desc', user_preferences: 'created_at.asc',
-    integrations: 'name.asc', credentials: 'updated_at.desc',
+    integrations: 'name.asc', credentials: 'updated_at.desc', expenses: 'name.asc',
   }
   const entries = await Promise.all(Object.entries(orders).map(async ([table, order]) => [table, await selectAll(table, { order })]))
   return Object.fromEntries(entries)
@@ -343,6 +352,21 @@ export function AppDataProvider({ children }) {
     setRows((prev) => ({ ...prev, clients: prev.clients.map((row) => row.id === clientId ? updated : row) }))
   }, [])
 
+  const createExpense = useCallback(async (values) => {
+    const [created] = await insertRow('expenses', { ...expenseValues(values), organization_id: data.organization.id })
+    setRows((prev) => ({ ...prev, expenses: [...prev.expenses, created] }))
+  }, [data.organization.id])
+
+  const updateExpense = useCallback(async (id, values) => {
+    const [updated] = await updateById('expenses', id, expenseValues(values))
+    setRows((prev) => ({ ...prev, expenses: prev.expenses.map((row) => row.id === id ? updated : row) }))
+  }, [])
+
+  const deleteExpense = useCallback(async (id) => {
+    await deleteById('expenses', id)
+    setRows((prev) => ({ ...prev, expenses: prev.expenses.filter((row) => row.id !== id) }))
+  }, [])
+
   const createServer = useCallback(async (values) => {
     const created = await createMonitoredServer({
       organization_id: data.organization?.id || '', name: values.name, agent_token: values.agentToken,
@@ -427,6 +451,9 @@ export function AppDataProvider({ children }) {
       updateCurrentUser,
       createClient,
       updateClientBilling,
+      createExpense,
+      updateExpense,
+      deleteExpense,
       createSalesRep,
       updateSalesRep,
       deleteSalesRep,
@@ -451,6 +478,9 @@ export function AppDataProvider({ children }) {
       updateCurrentUser,
       createClient,
       updateClientBilling,
+      createExpense,
+      updateExpense,
+      deleteExpense,
       createSalesRep,
       updateSalesRep,
       deleteSalesRep,

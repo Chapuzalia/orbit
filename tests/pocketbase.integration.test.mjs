@@ -59,6 +59,14 @@ test('empty installation, new accounts, workspace rules, CRUD and monitoring', {
   assert.equal(billingRollbackDb.prepare('SELECT name FROM clients WHERE id = ?').get('existingcli0001').name, 'Existing client')
   billingRollbackDb.close()
   run('migrate', 'up')
+  await copyFile(join(root, 'pocketbase/pb_migrations/1792720800_expenses.js'), join(migrations, '1792720800_expenses.js'))
+  run('migrate', 'up')
+  run('migrate', 'down', '1')
+  run('migrate', 'up')
+  const expensesUpgradeDb = new DatabaseSync(join(directory, 'data', 'data.db'))
+  assert.equal(expensesUpgradeDb.prepare('SELECT name FROM clients WHERE id = ?').get('existingcli0001').name, 'Existing client')
+  assert.equal(expensesUpgradeDb.prepare('SELECT COUNT(*) AS count FROM expenses').get().count, 0)
+  expensesUpgradeDb.close()
   const cleanupDb = new DatabaseSync(join(directory, 'data', 'data.db'))
   cleanupDb.prepare('DELETE FROM clients WHERE id = ?').run('existingcli0001')
   cleanupDb.prepare('DELETE FROM organizations WHERE id = ?').run('existingorg0001')
@@ -68,7 +76,7 @@ test('empty installation, new accounts, workspace rules, CRUD and monitoring', {
   await new Promise((done) => portServer.listen(0, '127.0.0.1', done))
   const port = portServer.address().port
   await new Promise((done) => portServer.close(done))
-  const child = spawn(binary, ['serve', `--http=127.0.0.1:${port}`, '--automigrate=0', ...args], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
+  const child = spawn(binary, ['serve', `--http=127.0.0.1:${port}`, '--automigrate=0', '--hooksWatch=false', ...args], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
   let logs = ''
   child.stdout.on('data', (data) => logs += data)
   child.stderr.on('data', (data) => logs += data)
@@ -82,7 +90,7 @@ test('empty installation, new accounts, workspace rules, CRUD and monitoring', {
   const service = new PocketBase(url)
   service.autoCancellation(false)
   await service.collection('_superusers').authWithPassword('service@example.com', 'Local-service-password-123')
-  const tables = ['users', 'organizations', 'clients', 'sales_reps', 'servers', 'server_metrics', 'invoices', 'payments', 'subscriptions', 'revenue_by_month', 'notifications', 'activity', 'user_preferences', 'integrations', 'credentials']
+  const tables = ['users', 'organizations', 'clients', 'sales_reps', 'servers', 'server_metrics', 'invoices', 'payments', 'subscriptions', 'revenue_by_month', 'notifications', 'activity', 'user_preferences', 'integrations', 'credentials', 'expenses']
   for (const table of tables) assert.equal((await service.collection(table).getList(1, 1)).totalItems, 0, `${table} must start empty`)
   const collections = await service.collections.getFullList()
   for (const name of ['members', 'projects', 'tasks', 'meetings', 'repositories', 'pull_requests', 'commits', 'workflows', 'milestones', 'todo_lists', 'todo_items']) assert.ok(!collections.some((collection) => collection.name === name))
@@ -106,6 +114,43 @@ test('empty installation, new accounts, workspace rules, CRUD and monitoring', {
   await assert.rejects(bob.collection('users').update(userB.id, { role: 'admin' }))
   assert.equal((await new PocketBase(url).collection('clients').getFullList()).length, 0)
   await assert.rejects(new PocketBase(url).collection('users').create({ email: 'public@example.com', password, passwordConfirm: password, role: 'admin', organization_id: orgA.id }))
+  await t.test('expense CRUD, IVA precision, cycles and workspace isolation', async () => {
+    const values = { organization_id: orgA.id, name: 'Hosting', supplier: 'Proveedor', category: 'infrastructure', net_amount: 100.99, vat_type: 'rate', vat_rate: 21, billing_cycle: 'monthly', status: 'active', charge_date: '2026-11-01 12:00:00.000Z', notes: 'Notes' }
+    const created = await alice.collection('expenses').create(values)
+    assert.equal(created.net_amount, 100.99)
+    assert.equal(created.vat_rate, 21)
+    assert.ok(created.charge_date.startsWith('2026-11-01'))
+    for (const billing_cycle of ['monthly', 'bimonthly', 'quarterly', 'semiannual', 'annual', 'one_time']) assert.equal((await alice.collection('expenses').update(created.id, { billing_cycle })).billing_cycle, billing_cycle)
+    assert.equal((await alice.collection('expenses').update(created.id, { vat_rate: 7.5, status: 'paused', charge_date: '' })).vat_rate, 7.5)
+    const reloaded = await alice.collection('expenses').getOne(created.id)
+    assert.equal(reloaded.status, 'paused')
+    assert.equal(reloaded.charge_date, '')
+    for (const vat_type of ['exempt', 'not_subject', 'reverse_charge']) {
+      await assert.rejects(alice.collection('expenses').update(created.id, { vat_type, vat_rate: 21 }))
+      const updated = await alice.collection('expenses').update(created.id, { vat_type, vat_rate: 0 })
+      assert.equal(updated.vat_type, vat_type)
+      assert.equal(updated.vat_rate, 0)
+    }
+    for (const invalid of [{ name: ' ' }, { net_amount: -1 }, { net_amount: 10.001 }, { net_amount: 1000000000 }, { vat_type: 'rate', vat_rate: -1 }, { vat_type: 'rate', vat_rate: 101 }, { vat_type: 'rate', vat_rate: 7.555 }, { category: 'invalid' }, { billing_cycle: 'none' }, { status: 'invalid' }, { vat_type: 'invalid' }]) {
+      await assert.rejects(alice.collection('expenses').create({ ...values, ...invalid }), undefined, JSON.stringify(invalid))
+      await assert.rejects(alice.collection('expenses').update(created.id, invalid), undefined, JSON.stringify(invalid))
+    }
+    const foreign = await bob.collection('expenses').create({ ...values, organization_id: orgB.id })
+    assert.equal((await alice.collection('expenses').getFullList()).length, 1)
+    await assert.rejects(alice.collection('expenses').getOne(foreign.id))
+    await assert.rejects(alice.collection('expenses').update(foreign.id, { name: 'Changed' }))
+    await assert.rejects(alice.collection('expenses').delete(foreign.id))
+    await assert.rejects(alice.collection('expenses').create({ ...values, organization_id: orgB.id }))
+    await assert.rejects(alice.collection('expenses').update(created.id, { organization_id: orgB.id }))
+    const anonymous = new PocketBase(url)
+    assert.equal((await anonymous.collection('expenses').getFullList()).length, 0)
+    await assert.rejects(anonymous.collection('expenses').create(values))
+    await assert.rejects(anonymous.collection('expenses').update(created.id, { name: 'Changed' }))
+    await alice.collection('expenses').delete(created.id)
+    await bob.collection('expenses').delete(foreign.id)
+    assert.equal((await alice.collection('expenses').getFullList()).length, 0)
+  })
+
   await t.test('client billing persists valid cycles and cents and rejects invalid or foreign writes', async () => {
     assert.equal(clientA.billing_cycle, '')
     assert.equal(clientA.billing_amount, 0)

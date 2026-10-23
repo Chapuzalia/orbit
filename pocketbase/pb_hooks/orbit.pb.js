@@ -84,3 +84,12 @@ onRecordValidate((e) => {
   }
   return e.next();
 }, 'clients', 'server_metrics', 'invoices', 'payments', 'subscriptions', 'notifications', 'activity', 'user_preferences', 'credentials');
+
+onRecordValidate((e) => {
+  const amount = e.record.getFloat('net_amount');
+  const rate = e.record.getFloat('vat_rate');
+  if (!e.record.getString('name').trim()) throw new BadRequestError('Introduce el nombre del gasto.');
+  if (Math.abs(amount * 100 - Math.round(amount * 100)) > 0.0001 || Math.abs(rate * 100 - Math.round(rate * 100)) > 0.0001) throw new BadRequestError('El importe y el IVA admiten un máximo de dos decimales.');
+  if (e.record.getString('vat_type') !== 'rate' && rate !== 0) throw new BadRequestError('Este tratamiento de IVA debe tener un porcentaje de 0 %.');
+  return e.next();
+}, 'expenses');

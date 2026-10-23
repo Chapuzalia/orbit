@@ -4,7 +4,7 @@ Orbit empieza desde cero: la migracion crea las colecciones vacias, sin importar
 
 La web usa el SDK oficial y cuentas de la coleccion `users`, siguiendo el patron de Mess. La monitorizacion se ejecuta en hooks del servidor. Usa una instancia y un volumen de datos propios para Orbit.
 
-El esquema incluye clientes, comerciales, facturas, pagos, suscripciones, ingresos, servidores, metricas, credenciales, notificaciones, actividad y ajustes. No incluye proyectos, tareas, calendario, equipo, GitHub, hitos, reuniones ni listas de tareas. Los perfiles de acceso viven en `users`.
+El esquema incluye clientes, comerciales, gastos, facturas, pagos, suscripciones, ingresos, servidores, metricas, credenciales, notificaciones, actividad y ajustes. No incluye proyectos, tareas, calendario, equipo, GitHub, hitos, reuniones ni listas de tareas. Los perfiles de acceso viven en `users`.
 
 ## Desplegar PocketBase
 
@@ -102,3 +102,15 @@ La tarjeta de ingresos recurrentes de Clientes suma todos los clientes activos, 
 La migración `1792717200_client_billing.js` añade `clients.billing_cycle` y `clients.billing_amount` sin modificar facturación histórica ni asignaciones comerciales. Los clientes existentes empiezan sin configurar y con importe cero. Despliega esta migración y los hooks actualizados antes de la nueva web.
 
 Pruebas del cálculo y validación: `node --test tests/client-billing.test.mjs`.
+
+## Gastos, IVA y ciclos de cobro
+
+La sección **Gastos** permite crear, editar, pausar y eliminar gastos del workspace, con nombre, proveedor, categoría, base por cobro sin IVA, tratamiento de IVA, ciclo, fecha prevista opcional y notas. Dispone de búsqueda y filtros por estado, categoría y ciclo. La fecha prevista se actualiza manualmente al editar; no se registra un historial de pagos ni se avanza automáticamente.
+
+Incluye porcentajes predefinidos del 21 %, 10 %, 4 % y 0 %, además de otro porcentaje (0–100 %, hasta dos decimales), exento, no sujeto e inversión del sujeto pasivo. Los tipos españoles se contrastaron con [la AEAT](https://sede.agenciatributaria.gob.es/Sede/iva/calculo-iva-repercutido-clientes/tipos-impositivos-iva.html). El usuario selecciona el tratamiento según su factura: no se asigna automáticamente por categoría. Exento, no sujeto e inversión del sujeto pasivo se distinguen del tipo cero y requieren porcentaje cero. El total representa el pago al proveedor; no calcula autorrepercusión, IVA deducible ni liquidaciones fiscales.
+
+El IVA se redondea a céntimos por cobro. Los resúmenes convierten los ciclos mensual, bimestral, trimestral, semestral y anual a equivalentes mensuales y anuales, excluyendo gastos puntuales y pausados, independientemente de los filtros. La base y el IVA mensuales se redondean a céntimos por separado y el total mostrado suma ambos. Son equivalentes de costes, no salidas de caja reales de un mes concreto.
+
+La migración `1792720800_expenses.js` crea la colección vacía `expenses` con reglas de aislamiento por workspace. Despliega migraciones y hooks antes de publicar la web. Conserva los clientes, comerciales y su facturación.
+
+Verificación: `node --test tests/expenses.test.mjs tests/client-billing.test.mjs` y `pnpm test:pocketbase`.
