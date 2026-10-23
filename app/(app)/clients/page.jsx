@@ -55,13 +55,6 @@ export default function ClientsPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Clientes activos" value={activeClients} icon={Users} tone="primary" />
-        <MetricCard label="Facturación total" value={formatCurrency(totalRevenue)} icon={Wallet} tone="chart3" />
-        <MetricCard label="Pendiente de cobro" value={formatCurrency(totalPending)} icon={AlertCircle} tone="warning" />
-        <MetricCard label="Empresas" value={clients.filter((c) => c.type === 'Empresa').length} icon={Building2} tone="chart2" />
-      </div>
-
       <Card className="p-5">
         <h2 className="font-semibold">Ingresos recurrentes</h2>
         <p className="mt-1 text-xs text-muted-foreground">Total de clientes activos · sin IVA · independiente de los filtros</p>
