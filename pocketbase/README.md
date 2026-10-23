@@ -114,3 +114,9 @@ El IVA se redondea a céntimos por cobro. Los resúmenes convierten los ciclos m
 La migración `1792720800_expenses.js` crea la colección vacía `expenses` con reglas de aislamiento por workspace. Despliega migraciones y hooks antes de publicar la web. Conserva los clientes, comerciales y su facturación.
 
 Verificación: `node --test tests/expenses.test.mjs tests/client-billing.test.mjs` y `pnpm test:pocketbase`.
+
+## Estadísticas
+
+La sección **Estadísticas** compara los ingresos recurrentes de clientes activos con los gastos recurrentes activos sin IVA, muestra beneficio operativo y margen estimados, permite simular 3, 6 o 12 meses, clasifica la cartera actual por comercial y desglosa costes por categoría. La facturación registrada se muestra por separado según las facturas emitidas. No requiere una migración adicional.
+
+Consulta [las fórmulas, fuentes y límites de las estadísticas](../docs/statistics.md). Pruebas: `node --test tests/statistics.test.mjs tests/expenses.test.mjs tests/client-billing.test.mjs`.

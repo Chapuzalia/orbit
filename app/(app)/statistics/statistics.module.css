@@ -1,0 +1,3 @@
+:global(html:not(.dark)) .surface {
+  --muted-foreground: #5b6b80;
+}
