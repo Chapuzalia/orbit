@@ -11,15 +11,19 @@ import { Card } from '@/components/ui/card'
 import { Input, Label, Select } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
 import { SalesRepModal } from '@/components/sales-rep-modal'
+import { CommissionEditor } from '@/components/commission-editor'
+import { commissionSummary } from '@/lib/commissions.mjs'
+import { formatCurrencyPrecise as currency } from '@/lib/format'
 import { StatusBadge } from '@/components/status-badge'
 import { useAppData } from '@/lib/data-context'
 import { useToast } from '@/components/ui/toaster'
 
 export default function SalesRepsPage() {
-  const { salesReps, clients, deleteSalesRep, assignClientSalesRep } = useAppData()
+  const { salesReps, clients, commissions, deleteSalesRep, assignClientSalesRep } = useAppData()
   const { toast } = useToast()
   const [query, setQuery] = useState('')
   const [editor, setEditor] = useState(null)
+  const [commissionEditor, setCommissionEditor] = useState(null)
   const [expanded, setExpanded] = useState('')
   const [deleting, setDeleting] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -46,10 +50,17 @@ export default function SalesRepsPage() {
     }
   }
 
+  if (commissionEditor) {
+    const client = clients.find((item) => item.id === commissionEditor.clientId)
+    const rep = salesReps.find((item) => item.id === commissionEditor.repId)
+    if (client && rep) return <CommissionEditor key={`${client.id}-${rep.id}`} client={client} salesRep={rep} onBack={() => setCommissionEditor(null)} />
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 [--muted-foreground:#5b6b80] dark:[--muted-foreground:#94a3b8]">
       <PageHeader title="Comerciales" description={`${salesReps.length} ${salesReps.length === 1 ? 'comercial' : 'comerciales'} · ${unassigned.length} ${unassigned.length === 1 ? 'cliente sin comercial' : 'clientes sin comercial'}`}
         actions={<Button onClick={() => setEditor({})}><Plus className="h-4 w-4" />Nuevo comercial</Button>} />
+      <p className="max-w-3xl text-sm text-muted-foreground">Configura la comisión de cada cliente desde su cartera: bono de alta y porcentaje recurrente según el plan Tickit POS. Los importes generados se calculan solo con cuotas cobradas registradas, sin IVA.</p>
       <div className="relative w-full sm:max-w-sm">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input aria-label="Buscar comerciales" placeholder="Buscar por nombre, email o teléfono…" className="pl-9" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -61,6 +72,8 @@ export default function SalesRepsPage() {
           {filtered.map((rep) => {
             const assigned = clients.filter((client) => client.salesRepId === rep.id)
             const isOpen = expanded === rep.id
+            const agreements = commissions.filter((item) => item.salesRepId === rep.id)
+            const earned = agreements.reduce((sum, item) => sum + Math.round(commissionSummary(item).earned * 100), 0) / 100
             return (
               <div key={rep.id}>
                 <div className="flex flex-wrap items-center gap-3 p-4 sm:p-5">
@@ -74,16 +87,17 @@ export default function SalesRepsPage() {
                     </div>
                   </div>
                   <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                    <span className="mr-2 text-sm tabular-nums">{currency(earned)} <span className="text-muted-foreground">generados</span></span>
                     <Button variant="outline" aria-expanded={isOpen} aria-controls={`clients-${rep.id}`} onClick={() => setExpanded(isOpen ? '' : rep.id)}>
                       {assigned.length} {assigned.length === 1 ? 'cliente' : 'clientes'}<ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                     </Button>
                     <Button variant="ghost" size="icon" aria-label={`Editar ${rep.name}`} onClick={() => setEditor(rep)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" aria-label={`Eliminar ${rep.name}`} onClick={() => { setDeleteError(''); setDeleting(rep) }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <Button variant="ghost" size="icon" disabled={agreements.length > 0} title={agreements.length ? 'Conserva sus acuerdos de comisión: no se puede eliminar este comercial.' : undefined} aria-label={`Eliminar ${rep.name}`} onClick={() => { setDeleteError(''); setDeleting(rep) }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
                 </div>
                 {isOpen && <div id={`clients-${rep.id}`} className="space-y-4 border-t border-border bg-muted/30 p-4 sm:p-5">
                   {rep.notes && <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{rep.notes}</p>}
-                  <ClientPortfolio salesRep={rep} assigned={assigned} unassigned={unassigned} assign={assignClientSalesRep} />
+                  <ClientPortfolio salesRep={rep} assigned={assigned} unassigned={unassigned} assign={assignClientSalesRep} agreements={agreements} clients={clients} onCommission={(client) => setCommissionEditor({ clientId: client.id, repId: rep.id })} />
                 </div>}
               </div>
             )
@@ -101,7 +115,7 @@ export default function SalesRepsPage() {
   )
 }
 
-function ClientPortfolio({ salesRep, assigned, unassigned, assign }) {
+function ClientPortfolio({ salesRep, assigned, unassigned, assign, agreements, clients, onCommission }) {
   const { toast } = useToast()
   const [clientId, setClientId] = useState('')
   const [busy, setBusy] = useState(false)
@@ -125,12 +139,25 @@ function ClientPortfolio({ salesRep, assigned, unassigned, assign }) {
       {assigned.length === 0 ? <p className="text-sm text-muted-foreground">Este comercial todavía no tiene clientes asignados.</p> : (
         <ul className="divide-y divide-border">
           {assigned.map((client) => <li key={client.id} className="flex flex-wrap items-center gap-3 py-3">
-            <Link className="min-w-0 flex-1 break-words text-sm font-medium hover:text-primary hover:underline" href={`/clients/${client.id}`}>{client.name}</Link>
+            <div className="min-w-0 flex-1 basis-40">
+              <Link className="break-words text-sm font-medium hover:text-primary hover:underline" href={`/clients/${client.id}`}>{client.name}</Link>
+              {agreements.filter((item) => item.clientId === client.id).map((item) => <p key={item.id} className="mt-1 text-xs text-muted-foreground tabular-nums">{item.rate} % · {currency(commissionSummary(item).monthlyEstimate)} por cuota · meses {item.firstMonth}–{item.lastMonth} · {item.status === 'ended' ? 'Finalizado' : 'Activo'}</p>)}
+            </div>
             <StatusBadge type="client" value={client.status} />
+            <Button variant="outline" disabled={busy} onClick={() => onCommission(client)} aria-label={`Comisión de ${client.name}`}>{agreements.some((item) => item.clientId === client.id) ? 'Ver comisión' : 'Configurar comisión'}</Button>
             <Button variant="ghost" size="icon" disabled={busy} aria-label={`Quitar asignación de ${client.name}`} onClick={() => save(client.id, '')}><UserMinus className="h-4 w-4" /></Button>
           </li>)}
         </ul>
       )}
+      {agreements.some((item) => !assigned.some((client) => client.id === item.clientId)) && <div className="space-y-2 border-t border-border pt-4">
+        <h3 className="text-sm font-semibold">Acuerdos de clientes reasignados</h3>
+        <p className="text-xs text-muted-foreground">Conservan el comercial original y sus cobros. Cambiar la asignación no transfiere ni cierra el acuerdo.</p>
+        {agreements.filter((item) => !assigned.some((client) => client.id === item.clientId)).map((item) => {
+          const client = clients.find((client) => client.id === item.clientId)
+          return client && <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm"><span>{client.name} · {item.status === 'ended' ? 'Finalizado' : 'Activo'}</span><Button variant="outline" onClick={() => onCommission(client)}>Ver comisión de {client.name}</Button></div>
+        })}
+      </div>}
+      {agreements.length > 0 && <p className="text-xs text-muted-foreground">Este comercial tiene acuerdos de comisión y se conserva para mantener su historial. Los totales generados no son pagos al comercial.</p>}
       {unassigned.length > 0 ? <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); if (clientId && !busy) save(clientId, salesRep.id) }}>
         <Label htmlFor={`assign-${salesRep.id}`}>Asignar cliente sin comercial</Label>
         <div className="flex flex-col gap-2 sm:flex-row">

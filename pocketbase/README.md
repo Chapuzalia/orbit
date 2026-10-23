@@ -120,3 +120,9 @@ Verificación: `node --test tests/expenses.test.mjs tests/client-billing.test.mj
 La sección **Estadísticas** compara los ingresos recurrentes de clientes activos con los gastos recurrentes activos sin IVA, muestra beneficio operativo y margen estimados, permite simular 3, 6 o 12 meses, clasifica la cartera actual por comercial y desglosa costes por categoría. La facturación registrada se muestra por separado según las facturas emitidas. No requiere una migración adicional.
 
 Consulta [las fórmulas, fuentes y límites de las estadísticas](../docs/statistics.md). Pruebas: `node --test tests/statistics.test.mjs tests/expenses.test.mjs tests/client-billing.test.mjs`.
+
+## Comisiones por cliente
+
+Desde **Comerciales**, abre la cartera y configura la comisión de cada cliente según el plan Tickit POS: bono de alta (media cuota en Basic), 10 % de la mensualidad 3 a la 60 y reversión del bono por baja o impago antes de cobrar la cuarta cuota. Las condiciones son personalizables por cliente. Los importes generados se calculan únicamente con mensualidades de software cobradas y registradas, sin IVA, hardware ni instalación; se distinguen de las estimaciones y de los pagos al comercial.
+
+Despliega primero `1792807200_sales_commissions.js` y los hooks completos, incluida su carpeta `lib`, antes de publicar la web. La nueva colección arranca vacía y conserva titular e historial aunque se reasigne un cliente. Los comerciales con acuerdos no se eliminan. Consulta [el modelo, los ejemplos y la configuración de comisiones](../docs/sales-commissions.md).

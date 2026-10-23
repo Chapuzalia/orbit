@@ -93,3 +93,20 @@ onRecordValidate((e) => {
   if (e.record.getString('vat_type') !== 'rate' && rate !== 0) throw new BadRequestError('Este tratamiento de IVA debe tener un porcentaje de 0 %.');
   return e.next();
 }, 'expenses');
+
+onRecordValidate((e) => {
+  const organization = e.record.getString('organization_id');
+  const client = e.app.findRecordById('clients', e.record.getString('client_id'));
+  const rep = e.app.findRecordById('sales_reps', e.record.getString('sales_rep_id'));
+  if (client.getString('organization_id') !== organization || rep.getString('organization_id') !== organization) throw new BadRequestError('El cliente y el comercial deben pertenecer al mismo workspace.');
+  if (e.record.isNew() && client.getString('sales_rep_id') !== rep.id) throw new BadRequestError('Asigna primero el cliente a este comercial.');
+  const rules = require(__hooks + '/lib/commission-rules.js');
+  try {
+    const values = rules.validate({ plan: e.record.getString('plan'), monthlyAmount: e.record.getFloat('monthly_amount'), bonusMultiplier: e.record.getFloat('bonus_multiplier'), rate: e.record.getFloat('rate'),
+      firstMonth: e.record.getInt('first_month'), lastMonth: e.record.getInt('last_month'), startMonth: e.record.getString('start_month'), status: e.record.getString('status'), endedMonth: e.record.getInt('ended_month'),
+      receipts: JSON.parse(e.record.getString('receipts') || '[]') });
+    e.record.set('receipts', values.receipts);
+    e.record.set('ended_month', values.endedMonth);
+  } catch (err) { throw new BadRequestError(String(err.message || err)); }
+  return e.next();
+}, 'sales_commissions');

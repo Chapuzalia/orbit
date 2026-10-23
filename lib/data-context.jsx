@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { requireWorkspace } from '@/lib/workspace.mjs'
 import { billingValues } from '@/lib/client-billing.mjs'
 import { expenseValues } from '@/lib/expenses.mjs'
+import { commissionFromRow, commissionValues } from '@/lib/commissions.mjs'
 import {
   deleteById,
   createMonitoredServer,
@@ -22,6 +23,7 @@ const EMPTY_ROWS = {
   clients: [],
   expenses: [],
   sales_reps: [],
+  sales_commissions: [],
   servers: [],
   invoices: [],
   payments: [],
@@ -196,6 +198,7 @@ function buildData(rows, session) {
   return {
     organization, currentUser, clients, invoices, servers, revenueByMonth,
     salesReps: rows.sales_reps.map(salesRepFromRow),
+    commissions: rows.sales_commissions.map(commissionFromRow),
     expenses: rows.expenses.map(expenseFromRow),
     payments: rows.payments.map(paymentFromRow),
     subscriptions: rows.subscriptions.map(subscriptionFromRow),
@@ -218,7 +221,7 @@ async function fetchRows() {
     organizations: 'created_at.asc', clients: 'name.asc', sales_reps: 'name.asc', servers: 'name.asc',
     invoices: 'issued.desc', payments: 'date.desc', subscriptions: 'created_at.desc', revenue_by_month: 'sort_order.asc',
     notifications: 'created_at.desc', activity: 'created_at.desc', user_preferences: 'created_at.asc',
-    integrations: 'name.asc', credentials: 'updated_at.desc', expenses: 'name.asc',
+    integrations: 'name.asc', credentials: 'updated_at.desc', expenses: 'name.asc', sales_commissions: 'created.asc',
   }
   const entries = await Promise.all(Object.entries(orders).map(async ([table, order]) => [table, await selectAll(table, { order })]))
   return Object.fromEntries(entries)
@@ -352,6 +355,15 @@ export function AppDataProvider({ children }) {
     setRows((prev) => ({ ...prev, clients: prev.clients.map((row) => row.id === clientId ? updated : row) }))
   }, [])
 
+  const saveCommission = useCallback(async (agreement, clientId, salesRepId, values) => {
+    const payload = commissionValues(values)
+    const [saved] = agreement?.id
+      ? await updateById('sales_commissions', agreement.id, payload)
+      : await insertRow('sales_commissions', { ...payload, organization_id: data.organization.id, client_id: clientId, sales_rep_id: salesRepId })
+    setRows((prev) => ({ ...prev, sales_commissions: agreement?.id ? prev.sales_commissions.map((row) => row.id === saved.id ? saved : row) : [...prev.sales_commissions, saved] }))
+    return commissionFromRow(saved)
+  }, [data.organization.id])
+
   const createExpense = useCallback(async (values) => {
     const [created] = await insertRow('expenses', { ...expenseValues(values), organization_id: data.organization.id })
     setRows((prev) => ({ ...prev, expenses: [...prev.expenses, created] }))
@@ -458,6 +470,7 @@ export function AppDataProvider({ children }) {
       updateSalesRep,
       deleteSalesRep,
       assignClientSalesRep,
+      saveCommission,
       createServer,
       createCredential,
       updateCredential,
@@ -485,6 +498,7 @@ export function AppDataProvider({ children }) {
       updateSalesRep,
       deleteSalesRep,
       assignClientSalesRep,
+      saveCommission,
       createServer,
       createCredential,
       updateCredential,

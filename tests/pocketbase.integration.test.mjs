@@ -67,6 +67,10 @@ test('empty installation, new accounts, workspace rules, CRUD and monitoring', {
   assert.equal(expensesUpgradeDb.prepare('SELECT name FROM clients WHERE id = ?').get('existingcli0001').name, 'Existing client')
   assert.equal(expensesUpgradeDb.prepare('SELECT COUNT(*) AS count FROM expenses').get().count, 0)
   expensesUpgradeDb.close()
+  await copyFile(join(root, 'pocketbase/pb_migrations/1792807200_sales_commissions.js'), join(migrations, '1792807200_sales_commissions.js'))
+  run('migrate', 'up')
+  run('migrate', 'down', '1')
+  run('migrate', 'up')
   const cleanupDb = new DatabaseSync(join(directory, 'data', 'data.db'))
   cleanupDb.prepare('DELETE FROM clients WHERE id = ?').run('existingcli0001')
   cleanupDb.prepare('DELETE FROM organizations WHERE id = ?').run('existingorg0001')
@@ -90,7 +94,7 @@ test('empty installation, new accounts, workspace rules, CRUD and monitoring', {
   const service = new PocketBase(url)
   service.autoCancellation(false)
   await service.collection('_superusers').authWithPassword('service@example.com', 'Local-service-password-123')
-  const tables = ['users', 'organizations', 'clients', 'sales_reps', 'servers', 'server_metrics', 'invoices', 'payments', 'subscriptions', 'revenue_by_month', 'notifications', 'activity', 'user_preferences', 'integrations', 'credentials', 'expenses']
+  const tables = ['users', 'organizations', 'clients', 'sales_reps', 'servers', 'server_metrics', 'invoices', 'payments', 'subscriptions', 'revenue_by_month', 'notifications', 'activity', 'user_preferences', 'integrations', 'credentials', 'expenses', 'sales_commissions']
   for (const table of tables) assert.equal((await service.collection(table).getList(1, 1)).totalItems, 0, `${table} must start empty`)
   const collections = await service.collections.getFullList()
   for (const name of ['members', 'projects', 'tasks', 'meetings', 'repositories', 'pull_requests', 'commits', 'workflows', 'milestones', 'todo_lists', 'todo_items']) assert.ok(!collections.some((collection) => collection.name === name))
@@ -216,6 +220,42 @@ test('empty installation, new accounts, workspace rules, CRUD and monitoring', {
     await alice.collection('clients').delete(extra.id)
     await reps.delete(second.id)
     await bob.collection('sales_reps').delete(foreign.id)
+  })
+
+  await t.test('commission agreements persist, validate receipts, retain owner and isolate workspaces', async () => {
+    const rep = await alice.collection('sales_reps').create({ organization_id: orgA.id, name: 'Commission rep' })
+    const next = await alice.collection('sales_reps').create({ organization_id: orgA.id, name: 'Next rep' })
+    const foreign = await bob.collection('sales_reps').create({ organization_id: orgB.id, name: 'Foreign commission rep' })
+    const commissions = alice.collection('sales_commissions')
+    const values = { organization_id: orgA.id, client_id: clientA.id, sales_rep_id: rep.id, plan: 'basic', monthly_amount: 29, bonus_multiplier: 0.5, rate: 10, first_month: 3, last_month: 60, start_month: '2026-01', status: 'active', ended_month: 0, receipts: [] }
+    await assert.rejects(commissions.create(values)) // assign before configuring
+    await alice.collection('clients').update(clientA.id, { sales_rep_id: rep.id })
+    const created = await commissions.create(values)
+    assert.deepEqual(created.receipts, [])
+    await assert.rejects(commissions.create(values)) // one agreement per client and rep
+    const receipts = [1, 2, 3].map((month) => ({ month, amount: 29, date: '2026-10-01' }))
+    const updated = await commissions.update(created.id, { receipts, rate: 12.5 })
+    assert.equal(updated.rate, 12.5)
+    assert.deepEqual((await commissions.getOne(created.id)).receipts, receipts)
+    for (const invalid of [{ rate: 100.01 }, { rate: 1.001 }, { bonus_multiplier: -1 }, { monthly_amount: 29.001 }, { first_month: 0 }, { first_month: 3.5 }, { last_month: 2 }, { start_month: '2026-99' }, { start_month: '1999-01' }, { plan: 'bad' }, { receipts: [receipts[0], receipts[0]] }, { receipts: [{ month: 0, amount: 29, date: '2026-10-01' }] }, { receipts: [{ month: 1, amount: -1, date: '2026-10-01' }] }, { receipts: [{ month: 1, amount: 29, date: '2026-02-30' }] }, { receipts: [{ month: 1, amount: 29, date: '2025-10-01' }] }, { status: 'ended', ended_month: 2 }, { organization_id: orgB.id }, { client_id: clientB.id }, { sales_rep_id: next.id }]) {
+      await assert.rejects(commissions.update(created.id, invalid), JSON.stringify(invalid))
+    }
+    await assert.rejects(commissions.create({ ...values, client_id: clientB.id }))
+    await assert.rejects(commissions.create({ ...values, sales_rep_id: foreign.id }))
+    await assert.rejects(bob.collection('sales_commissions').getOne(created.id))
+    await assert.rejects(bob.collection('sales_commissions').update(created.id, { rate: 50 }))
+    await assert.rejects(bob.collection('sales_commissions').delete(created.id))
+    assert.equal((await new PocketBase(url).collection('sales_commissions').getFullList()).length, 0)
+    await assert.rejects(new PocketBase(url).collection('sales_commissions').create(values))
+    await assert.rejects(commissions.delete(created.id)) // retain financial history
+    await assert.rejects(alice.collection('sales_reps').delete(rep.id))
+    await assert.rejects(alice.collection('clients').delete(clientA.id))
+    await alice.collection('clients').update(clientA.id, { sales_rep_id: next.id })
+    assert.equal((await commissions.getOne(created.id)).sales_rep_id, rep.id)
+    await commissions.update(created.id, { status: 'ended', ended_month: 3 })
+    assert.equal((await commissions.getOne(created.id)).status, 'ended')
+    const fresh = await commissions.create({ ...values, sales_rep_id: next.id })
+    assert.equal(fresh.sales_rep_id, next.id)
   })
 
   const invoice = await alice.collection('invoices').create({ organization_id: orgA.id, client_id: clientA.id, number: 'F-2026/001', amount: 125.5, status: 'sent' })
