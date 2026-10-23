@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Avatar } from '@/components/ui/avatar'
 import { StatusBadge } from '@/components/status-badge'
+import { ClientSalesRepSelect } from '@/components/client-sales-rep-select'
 import { useAppData } from '@/lib/data-context'
 import { formatCurrency, formatDate, relativeTime } from '@/lib/format'
 import { ArrowLeft, Mail, Phone, MapPin, FileText, Building2 } from 'lucide-react'
@@ -53,6 +54,11 @@ export default function ClientDetailPage({ params }) {
                 Último contacto {relativeTime(client.lastContact)}
               </div>
             </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Gestión comercial</CardTitle></CardHeader>
+            <CardContent><ClientSalesRepSelect client={client} /></CardContent>
           </Card>
 
           <Card>

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { PageHeader } from '@/components/page-header'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Input, Select } from '@/components/ui/input'
 import { Avatar } from '@/components/ui/avatar'
 import { StatusBadge } from '@/components/status-badge'
 import { MetricCard } from '@/components/metric-card'
@@ -19,9 +19,10 @@ import { Search, Plus, Building2, Users, Wallet, AlertCircle } from 'lucide-reac
 const FILTERS = [{ value: 'all', label: 'Todos' }, ...Object.entries(CLIENT_STATUS).map(([value, cfg]) => ({ value, label: cfg.label }))]
 
 export default function ClientsPage() {
-  const { clients } = useAppData()
+  const { clients, salesReps } = useAppData()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('all')
+  const [salesRepId, setSalesRepId] = useState('all')
   const [createOpen, setCreateOpen] = useState(false)
 
   const filtered = useMemo(
@@ -29,9 +30,10 @@ export default function ClientsPage() {
       clients.filter((c) => {
         const q = !query || c.name.toLowerCase().includes(query.toLowerCase()) || (c.contact || '').toLowerCase().includes(query.toLowerCase())
         const s = status === 'all' || c.status === status
-        return q && s
+        const r = salesRepId === 'all' || (salesRepId === 'unassigned' ? !c.salesRepId : c.salesRepId === salesRepId)
+        return q && s && r
       }),
-    [clients, query, status],
+    [clients, query, status, salesRepId],
   )
 
   const totalRevenue = clients.reduce((s, c) => s + c.revenue, 0)
@@ -63,7 +65,13 @@ export default function ClientsPage() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar cliente o contacto..." className="pl-9" />
         </div>
-        <div className="flex flex-wrap gap-2">
+        <Select aria-label="Filtrar clientes por comercial" value={salesRepId} onChange={(e) => setSalesRepId(e.target.value)} className="sm:max-w-52">
+          <option value="all">Todos los comerciales</option>
+          <option value="unassigned">Sin comercial</option>
+          {salesReps.slice().sort((a, b) => a.name.localeCompare(b.name, 'es')).map((rep) => <option key={rep.id} value={rep.id}>{rep.name}</option>)}
+        </Select>
+      </div>
+      <div className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (
             <button
               key={f.value}
@@ -75,7 +83,6 @@ export default function ClientsPage() {
               {f.label}
             </button>
           ))}
-        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -97,6 +104,10 @@ export default function ClientsPage() {
                 </div>
 
                 <div className="mt-4 space-y-1 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">Comercial</span>
+                    <span className="truncate font-medium">{salesReps.find((rep) => rep.id === c.salesRepId)?.name || 'Sin comercial'}</span>
+                  </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Contacto</span>
                     <span className="font-medium">{c.contact}</span>

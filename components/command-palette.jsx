@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 export function CommandPalette({ open, onOpenChange }) {
   const router = useRouter()
-  const { clients } = useAppData()
+  const { clients, salesReps } = useAppData()
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const inputRef = useRef(null)
@@ -26,10 +26,11 @@ export function CommandPalette({ open, onOpenChange }) {
       label: c.name,
       href: `/clients/${c.id}`,
     }))
-    const all = [...nav, ...cli]
+    const reps = salesReps.map((rep) => ({ type: 'Comercial', label: rep.name, href: '/sales-reps' }))
+    const all = [...nav, ...cli, ...reps]
     if (!q) return all.slice(0, 8)
     return all.filter((r) => r.label.toLowerCase().includes(q)).slice(0, 10)
-  }, [clients, query])
+  }, [clients, salesReps, query])
 
   useEffect(() => {
     setActive(0)

@@ -4,7 +4,7 @@ Orbit empieza desde cero: la migracion crea las colecciones vacias, sin importar
 
 La web usa el SDK oficial y cuentas de la coleccion `users`, siguiendo el patron de Mess. La monitorizacion se ejecuta en hooks del servidor. Usa una instancia y un volumen de datos propios para Orbit.
 
-El esquema incluye clientes, facturas, pagos, suscripciones, ingresos, servidores, metricas, credenciales, notificaciones, actividad y ajustes. No incluye proyectos, tareas, calendario, equipo, GitHub, hitos, reuniones ni listas de tareas. Los perfiles de acceso viven en `users`.
+El esquema incluye clientes, comerciales, facturas, pagos, suscripciones, ingresos, servidores, metricas, credenciales, notificaciones, actividad y ajustes. No incluye proyectos, tareas, calendario, equipo, GitHub, hitos, reuniones ni listas de tareas. Los perfiles de acceso viven en `users`.
 
 ## Desplegar PocketBase
 
@@ -86,3 +86,9 @@ pnpm build
 Las pruebas crean una base local aislada, comprueban `up/down/up` y que todas las colecciones arrancan vacias. Despues crean cuentas nuevas para verificar login, reglas entre workspaces, CRUD, preferencias y monitorizacion. No usan datos ni servicios de produccion.
 
 La reversion de la migracion inicial elimina las colecciones y sus registros. Usala solo en pruebas o restaura una copia de `pb_data` si necesitas revertir una instalacion en uso.
+
+## Comerciales y asignación de clientes
+
+La sección **Comerciales** permite crear, editar y eliminar comerciales y consultar sus clientes. Cada comercial puede tener cero o muchos clientes; cada cliente tiene un único comercial opcional. La asignación también se puede cambiar o quitar desde la ficha del cliente, y elegir al darlo de alta. El listado de clientes permite filtrar por comercial o por clientes sin asignar.
+
+La migración `1792713600_sales_reps.js` añade la colección `sales_reps` y la relación opcional `clients.sales_rep_id` a instalaciones existentes, conservando sus clientes sin asignar. Despliega las migraciones y los hooks de PocketBase antes de publicar la nueva web. Las relaciones solo admiten comerciales del mismo workspace. Al eliminar un comercial, se conservan sus clientes y se elimina su asignación.

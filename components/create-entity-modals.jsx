@@ -76,11 +76,12 @@ function ColorPicker({ value, onChange }) {
 
 export function CreateClientModal({ open, onClose }) {
   const { toast } = useToast()
-  const { createClient } = useAppData()
+  const { createClient, salesReps } = useAppData()
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState({
     name: '',
     legalName: '',
+    salesRepId: '',
     taxId: '',
     contact: '',
     email: '',
@@ -103,7 +104,7 @@ export function CreateClientModal({ open, onClose }) {
       await createClient({ ...form, name: form.name.trim() })
       toast({ title: 'Cliente creado', description: form.name })
       onClose()
-      setForm((prev) => ({ ...prev, name: '', legalName: '', taxId: '', contact: '', email: '', phone: '', address: '' }))
+      setForm((prev) => ({ ...prev, name: '', legalName: '', taxId: '', contact: '', email: '', phone: '', address: '', salesRepId: '' }))
     } catch (err) {
       toast({ title: 'No se pudo crear el cliente', description: err.message, tone: 'error' })
     } finally {
@@ -149,6 +150,13 @@ export function CreateClientModal({ open, onClose }) {
         <Field label="Telefono">
           <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} />
         </Field>
+        <div className="sm:col-span-2">
+          <Label htmlFor="new-client-sales-rep">Comercial asignado</Label>
+          <Select id="new-client-sales-rep" className="mt-1.5" value={form.salesRepId} onChange={(e) => set('salesRepId', e.target.value)}>
+            <option value="">Sin comercial</option>
+            {salesReps.slice().sort((a, b) => a.name.localeCompare(b.name, 'es')).map((rep) => <option key={rep.id} value={rep.id}>{rep.name}</option>)}
+          </Select>
+        </div>
         <div className="sm:col-span-2">
           <Field label="Direccion">
             <Input value={form.address} onChange={(e) => set('address', e.target.value)} />

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -24,13 +24,47 @@ const MODAL_SIZES = {
 }
 
 export function Modal({ open, onClose, title, description, children, footer, className, size = 'md' }) {
+  const dialogRef = useRef(null)
+  const returnFocusRef = useRef(typeof document === 'undefined' ? null : document.activeElement)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
   useLockBody(open)
   useEffect(() => {
-    if (!open) return
-    const onKey = (e) => e.key === 'Escape' && onClose?.()
+    if (!open) {
+      const rememberFocus = (e) => { returnFocusRef.current = e.target }
+      document.addEventListener('focusin', rememberFocus)
+      return () => document.removeEventListener('focusin', rememberFocus)
+    }
+    const dialog = dialogRef.current
+    const focusable = () => Array.from(dialog.querySelectorAll('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'))
+      .filter((element) => element.getClientRects().length > 0 && element.tabIndex >= 0)
+    if (!dialog.contains(document.activeElement)) (focusable()[0] || dialog).focus()
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onCloseRef.current?.()
+      }
+      if (e.key !== 'Tab') return
+      const elements = focusable()
+      const first = elements[0]
+      const last = elements.at(-1)
+      if (!first) {
+        e.preventDefault()
+        dialog.focus()
+      } else if (e.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus()
+    }
+  }, [open])
 
   if (!open || typeof document === 'undefined') return null
 
@@ -41,8 +75,11 @@ export function Modal({ open, onClose, title, description, children, footer, cla
         onClick={onClose}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
         className={cn(
           'relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl animate-in slide-in-from-bottom-4 sm:rounded-2xl',
           MODAL_SIZES[size] || MODAL_SIZES.md,

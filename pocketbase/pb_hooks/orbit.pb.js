@@ -66,6 +66,7 @@ onRecordValidate((e) => {
   const organizationId = e.record.getString('organization_id');
   const name = e.record.collection().name;
   const relations = {
+    clients: { sales_rep_id: 'sales_reps' },
     server_metrics: { server_id: 'servers' }, invoices: { client_id: 'clients' },
     payments: { client_id: 'clients', invoice_id: 'invoices' }, subscriptions: { client_id: 'clients' },
     notifications: { user_id: 'users' }, activity: { actor_id: 'users' },
@@ -76,4 +77,4 @@ onRecordValidate((e) => {
     if (id && e.app.findRecordById(collection, id).getString('organization_id') !== organizationId) throw new BadRequestError('La relacion debe pertenecer al mismo workspace.');
   }
   return e.next();
-}, 'server_metrics', 'invoices', 'payments', 'subscriptions', 'notifications', 'activity', 'user_preferences', 'credentials');
+}, 'clients', 'server_metrics', 'invoices', 'payments', 'subscriptions', 'notifications', 'activity', 'user_preferences', 'credentials');

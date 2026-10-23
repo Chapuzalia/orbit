@@ -18,6 +18,7 @@ const DataContext = createContext(null)
 const EMPTY_ROWS = {
   organizations: [],
   clients: [],
+  sales_reps: [],
   servers: [],
   invoices: [],
   payments: [],
@@ -38,6 +39,7 @@ function clientFromRow(row) {
     id: row.id,
     organizationId: row.organization_id,
     name: row.name,
+    salesRepId: row.sales_rep_id || '',
     legalName: row.legal_name,
     taxId: row.tax_id,
     contact: row.contact,
@@ -79,6 +81,10 @@ function serverFromRow(row) {
     lastCheck: row.last_check,
     incidents: Number(row.incidents || 0),
   }
+}
+
+function salesRepFromRow(row) {
+  return { id: row.id, organizationId: row.organization_id, name: row.name, email: row.email, phone: row.phone, notes: row.notes }
 }
 
 function invoiceFromRow(row) {
@@ -178,6 +184,7 @@ function buildData(rows, session) {
     .sort((a, b) => a.sortOrder - b.sortOrder)
   return {
     organization, currentUser, clients, invoices, servers, revenueByMonth,
+    salesReps: rows.sales_reps.map(salesRepFromRow),
     payments: rows.payments.map(paymentFromRow),
     subscriptions: rows.subscriptions.map(subscriptionFromRow),
     notifications: rows.notifications.map(notificationFromRow),
@@ -196,7 +203,7 @@ function buildData(rows, session) {
 
 async function fetchRows() {
   const orders = {
-    organizations: 'created_at.asc', clients: 'name.asc', servers: 'name.asc',
+    organizations: 'created_at.asc', clients: 'name.asc', sales_reps: 'name.asc', servers: 'name.asc',
     invoices: 'issued.desc', payments: 'date.desc', subscriptions: 'created_at.desc', revenue_by_month: 'sort_order.asc',
     notifications: 'created_at.desc', activity: 'created_at.desc', user_preferences: 'created_at.asc',
     integrations: 'name.asc', credentials: 'updated_at.desc',
@@ -287,6 +294,7 @@ export function AppDataProvider({ children }) {
       organization_id: data.organization?.id || null,
       name: values.name,
       legal_name: values.legalName || null,
+      sales_rep_id: values.salesRepId || '',
       tax_id: values.taxId || null,
       contact: values.contact || null,
       email: values.email || null,
@@ -300,6 +308,31 @@ export function AppDataProvider({ children }) {
     setRows((prev) => ({ ...prev, clients: [...prev.clients, created] }))
     return clientFromRow(created)
   }, [data.organization?.id])
+
+  const createSalesRep = useCallback(async (values) => {
+    const [created] = await insertRow('sales_reps', { organization_id: data.organization.id, ...values })
+    setRows((prev) => ({ ...prev, sales_reps: [...prev.sales_reps, created] }))
+    return salesRepFromRow(created)
+  }, [data.organization.id])
+
+  const updateSalesRep = useCallback(async (id, values) => {
+    const [updated] = await updateById('sales_reps', id, values)
+    setRows((prev) => ({ ...prev, sales_reps: prev.sales_reps.map((row) => row.id === id ? updated : row) }))
+  }, [])
+
+  const deleteSalesRep = useCallback(async (id) => {
+    await deleteById('sales_reps', id)
+    setRows((prev) => ({
+      ...prev,
+      sales_reps: prev.sales_reps.filter((row) => row.id !== id),
+      clients: prev.clients.map((row) => row.sales_rep_id === id ? { ...row, sales_rep_id: '' } : row),
+    }))
+  }, [])
+
+  const assignClientSalesRep = useCallback(async (clientId, salesRepId) => {
+    const [updated] = await updateById('clients', clientId, { sales_rep_id: salesRepId || '' })
+    setRows((prev) => ({ ...prev, clients: prev.clients.map((row) => row.id === clientId ? updated : row) }))
+  }, [])
 
   const createServer = useCallback(async (values) => {
     const created = await createMonitoredServer({
@@ -384,6 +417,10 @@ export function AppDataProvider({ children }) {
       markAllNotificationsRead,
       updateCurrentUser,
       createClient,
+      createSalesRep,
+      updateSalesRep,
+      deleteSalesRep,
+      assignClientSalesRep,
       createServer,
       createCredential,
       updateCredential,
@@ -403,6 +440,10 @@ export function AppDataProvider({ children }) {
       markAllNotificationsRead,
       updateCurrentUser,
       createClient,
+      createSalesRep,
+      updateSalesRep,
+      deleteSalesRep,
+      assignClientSalesRep,
       createServer,
       createCredential,
       updateCredential,
