@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { requireWorkspace } from '@/lib/workspace.mjs'
+import { billingValues } from '@/lib/client-billing.mjs'
 import {
   deleteById,
   createMonitoredServer,
@@ -40,6 +41,8 @@ function clientFromRow(row) {
     organizationId: row.organization_id,
     name: row.name,
     salesRepId: row.sales_rep_id || '',
+    billingCycle: row.billing_cycle || 'none',
+    billingAmount: num(row.billing_amount),
     legalName: row.legal_name,
     taxId: row.tax_id,
     contact: row.contact,
@@ -291,6 +294,7 @@ export function AppDataProvider({ children }) {
 
   const createClient = useCallback(async (values) => {
     const [created] = await insertRow('clients', {
+      ...billingValues(values),
       organization_id: data.organization?.id || null,
       name: values.name,
       legal_name: values.legalName || null,
@@ -308,6 +312,11 @@ export function AppDataProvider({ children }) {
     setRows((prev) => ({ ...prev, clients: [...prev.clients, created] }))
     return clientFromRow(created)
   }, [data.organization?.id])
+
+  const updateClientBilling = useCallback(async (id, values) => {
+    const [updated] = await updateById('clients', id, billingValues(values))
+    setRows((prev) => ({ ...prev, clients: prev.clients.map((row) => row.id === id ? updated : row) }))
+  }, [])
 
   const createSalesRep = useCallback(async (values) => {
     const [created] = await insertRow('sales_reps', { organization_id: data.organization.id, ...values })
@@ -417,6 +426,7 @@ export function AppDataProvider({ children }) {
       markAllNotificationsRead,
       updateCurrentUser,
       createClient,
+      updateClientBilling,
       createSalesRep,
       updateSalesRep,
       deleteSalesRep,
@@ -440,6 +450,7 @@ export function AppDataProvider({ children }) {
       markAllNotificationsRead,
       updateCurrentUser,
       createClient,
+      updateClientBilling,
       createSalesRep,
       updateSalesRep,
       deleteSalesRep,

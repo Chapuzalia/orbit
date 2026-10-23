@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Avatar } from '@/components/ui/avatar'
 import { StatusBadge } from '@/components/status-badge'
 import { ClientSalesRepSelect } from '@/components/client-sales-rep-select'
+import { ClientBillingForm } from '@/components/client-billing'
 import { useAppData } from '@/lib/data-context'
 import { formatCurrency, formatDate, relativeTime } from '@/lib/format'
 import { ArrowLeft, Mail, Phone, MapPin, FileText, Building2 } from 'lucide-react'
@@ -81,6 +82,12 @@ export default function ClientDetailPage({ params }) {
         </div>
 
         <div className="space-y-6 lg:col-span-2">
+          <Card>
+            <CardHeader><CardTitle>Configuración de facturación</CardTitle></CardHeader>
+            <CardContent>
+              <ClientBillingForm key={client.id} client={client} />
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>Facturas ({clientInvoices.length})</CardTitle>

@@ -8,6 +8,7 @@ import { Input, Label, Select, Textarea } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toaster'
 import { useAppData } from '@/lib/data-context'
 import { CLIENT_STATUS } from '@/lib/constants'
+import { ClientBillingFields } from '@/components/client-billing'
 
 const COLORS = [
   'oklch(0.54 0.21 268)',
@@ -82,6 +83,8 @@ export function CreateClientModal({ open, onClose }) {
     name: '',
     legalName: '',
     salesRepId: '',
+    billingCycle: 'none',
+    billingAmount: '',
     taxId: '',
     contact: '',
     email: '',
@@ -104,7 +107,7 @@ export function CreateClientModal({ open, onClose }) {
       await createClient({ ...form, name: form.name.trim() })
       toast({ title: 'Cliente creado', description: form.name })
       onClose()
-      setForm((prev) => ({ ...prev, name: '', legalName: '', taxId: '', contact: '', email: '', phone: '', address: '', salesRepId: '' }))
+      setForm((prev) => ({ ...prev, name: '', legalName: '', taxId: '', contact: '', email: '', phone: '', address: '', salesRepId: '', billingCycle: 'none', billingAmount: '' }))
     } catch (err) {
       toast({ title: 'No se pudo crear el cliente', description: err.message, tone: 'error' })
     } finally {
@@ -157,6 +160,7 @@ export function CreateClientModal({ open, onClose }) {
             {salesReps.slice().sort((a, b) => a.name.localeCompare(b.name, 'es')).map((rep) => <option key={rep.id} value={rep.id}>{rep.name}</option>)}
           </Select>
         </div>
+        <ClientBillingFields billingCycle={form.billingCycle} billingAmount={form.billingAmount} idPrefix="new-client-billing" disabled={busy} onChange={(values) => setForm((prev) => ({ ...prev, ...values }))} />
         <div className="sm:col-span-2">
           <Field label="Direccion">
             <Input value={form.address} onChange={(e) => set('address', e.target.value)} />

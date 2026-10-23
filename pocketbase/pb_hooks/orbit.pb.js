@@ -65,6 +65,12 @@ routerAdd('POST', '/api/orbit/server-metrics', (e) => {
 onRecordValidate((e) => {
   const organizationId = e.record.getString('organization_id');
   const name = e.record.collection().name;
+  if (name === 'clients') {
+    const amount = e.record.getFloat('billing_amount');
+    const cycle = e.record.getString('billing_cycle');
+    if (Math.abs(amount * 100 - Math.round(amount * 100)) > 0.0001) throw new BadRequestError('El importe sin IVA debe tener un máximo de dos decimales.');
+    if ((!cycle || cycle === 'none') && amount !== 0) throw new BadRequestError('Selecciona un ciclo para indicar el importe a facturar.');
+  }
   const relations = {
     clients: { sales_rep_id: 'sales_reps' },
     server_metrics: { server_id: 'servers' }, invoices: { client_id: 'clients' },

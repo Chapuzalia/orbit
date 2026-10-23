@@ -92,3 +92,13 @@ La reversion de la migracion inicial elimina las colecciones y sus registros. Us
 La sección **Comerciales** permite crear, editar y eliminar comerciales y consultar sus clientes. Cada comercial puede tener cero o muchos clientes; cada cliente tiene un único comercial opcional. La asignación también se puede cambiar o quitar desde la ficha del cliente, y elegir al darlo de alta. El listado de clientes permite filtrar por comercial o por clientes sin asignar.
 
 La migración `1792713600_sales_reps.js` añade la colección `sales_reps` y la relación opcional `clients.sales_rep_id` a instalaciones existentes, conservando sus clientes sin asignar. Despliega las migraciones y los hooks de PocketBase antes de publicar la nueva web. Las relaciones solo admiten comerciales del mismo workspace. Al eliminar un comercial, se conservan sus clientes y se elimina su asignación.
+
+## Ciclos de facturación, MRR y ARR
+
+Cada cliente tiene un ciclo opcional y un importe por ciclo sin IVA. Los ciclos disponibles son mensual, bimestral, trimestral, semestral, anual y puntual. Pueden configurarse al crear el cliente o editarse desde su ficha. Los importes admiten cero y hasta dos decimales.
+
+La tarjeta de ingresos recurrentes de Clientes suma todos los clientes activos, independientemente de los filtros de la lista. Convierte cada ciclo recurrente a su equivalente mensual para el MRR; el ARR representa ese ingreso anualizado. Los ciclos sin configurar y puntuales, los importes cero y los clientes que no estén activos quedan excluidos. Se calcula en céntimos anuales y se redondea el total mensual una sola vez; el ARR conserva sus céntimos originales.
+
+La migración `1792717200_client_billing.js` añade `clients.billing_cycle` y `clients.billing_amount` sin modificar facturación histórica ni asignaciones comerciales. Los clientes existentes empiezan sin configurar y con importe cero. Despliega esta migración y los hooks actualizados antes de la nueva web.
+
+Pruebas del cálculo y validación: `node --test tests/client-billing.test.mjs`.
