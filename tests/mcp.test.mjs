@@ -53,6 +53,7 @@ test('stdio negotiates MCP, discovers tools, resources and prompts without authe
   assert.ok(!tools.some((tool) => tool.name === 'orbit_credentials_reveal'))
   assert.equal((await client.listResources()).resources[0].uri, 'orbit://capabilities')
   assert.equal((await client.listPrompts()).prompts.length, 1)
+  assert.deepEqual((await call(client, 'alteil_modules')).modules.map((module) => module.id), ['orbit'])
   const resource = await client.readResource({ uri: 'orbit://capabilities' })
   assert.ok(JSON.parse(resource.contents[0].text).entities.expenses)
   assert.equal((await call(client, 'orbit_capabilities')).read_only, false)

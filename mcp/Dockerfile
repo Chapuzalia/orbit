@@ -7,6 +7,7 @@ RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
 FROM node:24-alpine
 WORKDIR /app
+# Legacy defaults keep existing Coolify environments working. ALTEIL_MCP_* overrides them.
 ENV NODE_ENV=production ORBIT_MCP_TRANSPORT=http ORBIT_MCP_HOST=0.0.0.0 ORBIT_MCP_PORT=3100
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY mcp ./mcp

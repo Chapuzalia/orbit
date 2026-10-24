@@ -1,10 +1,12 @@
-# MCP de Orbit
+# MCP modular de Alteil
 
-Servidor MCP para conectar agentes a las funciones de negocio de Orbit. Usa el SDK oficial `@modelcontextprotocol/sdk` 1.29.0, con transportes **stdio** y **Streamable HTTP**. Se ejecuta como un proceso independiente de Next.js y utiliza la misma instancia PocketBase y sus reglas de acceso.
+Servidor MCP para conectar agentes a los productos de Alteil. Incluye los módulos **Orbit (PocketBase)** y **Tickit POS (Supabase staging con service_role)**. Usa el SDK oficial `@modelcontextprotocol/sdk` 1.29.0, con transportes **stdio** y **Streamable HTTP**. Se ejecuta como un proceso independiente de Next.js. Orbit conserva sus herramientas y reglas de PocketBase.
+
+Consulta la [arquitectura modular, configuración de Tickit POS y ejemplo de Coolify](mcp-modules.md). Tickit tiene acceso de **superadmin de plataforma**, sin empresa o local fijos. `ALTEIL_MODULES=orbit,tickit_pos` habilita ambos productos; si la variable no existe se carga solo Orbit para conservar los despliegues anteriores. Solo necesitas credenciales de los módulos habilitados.
 
 ## Arranque local
 
-Requiere Node.js 24 y las migraciones y hooks actuales de Orbit desplegados en PocketBase.
+Requiere Node.js 24. Para habilitar Orbit, PocketBase necesita sus migraciones y hooks actuales; para Tickit, configura el Supabase de staging según la guía modular.
 
 1. Ejecuta `pnpm install --frozen-lockfile`.
 2. Copia `.env.mcp.example` a `.env.mcp.local`.
@@ -36,7 +38,7 @@ También se pueden pasar las variables mediante el campo `env` del cliente. Con 
 
 ## Funciones disponibles
 
-Ejecuta `orbit_capabilities` o lee `orbit://capabilities` para obtener el catálogo efectivo. Los nombres siguen `orbit_<colección>_<operación>`; las operaciones generales son `list`, `get`, `create`, `update` y `delete`. Los campos utilizan los nombres de PocketBase en `snake_case`.
+Ejecuta `alteil_modules` para listar productos, `alteil_capabilities` para el catálogo completo y `alteil_module_health` para comprobar una conexión autenticada. `orbit_capabilities` y `orbit://capabilities` conservan el catálogo específico de Orbit. Los nombres de Orbit siguen `orbit_<colección>_<operación>`; las operaciones generales son `list`, `get`, `create`, `update` y `delete`. Los campos de Orbit utilizan los nombres de PocketBase en `snake_case`.
 
 | Área | Funciones |
 | --- | --- |
@@ -109,28 +111,28 @@ Las escrituras de secretos están disponibles con las herramientas CRUD porque f
 Configura en el entorno:
 
 ```dotenv
-ORBIT_MCP_TRANSPORT=http
-ORBIT_MCP_HOST=127.0.0.1
-ORBIT_MCP_PORT=3100
-ORBIT_MCP_HTTP_TOKEN=UN_TOKEN_ALEATORIO_DE_AL_MENOS_32_CARACTERES
-ORBIT_MCP_ALLOWED_HOSTS=127.0.0.1,localhost,mcp.tu-dominio.com
+ALTEIL_MCP_TRANSPORT=http
+ALTEIL_MCP_HOST=0.0.0.0
+ALTEIL_MCP_PORT=3100
+ALTEIL_MCP_HTTP_TOKEN=UN_TOKEN_ALEATORIO_DE_AL_MENOS_32_CARACTERES
+ALTEIL_MCP_ALLOWED_HOSTS=127.0.0.1,localhost,mcp.tu-dominio.com
 ```
 
 Genera un token, por ejemplo con `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.
 
-El endpoint es `POST /mcp` con `Authorization: Bearer <ORBIT_MCP_HTTP_TOKEN>`. El cliente debe soportar Streamable HTTP y cabeceras de autenticación configurables. Se usa modo stateless, sin sesiones MCP persistentes ni canal GET/SSE. El token HTTP y las credenciales de PocketBase son distintos. Este despliegue representa **una sola cuenta de Orbit**: todos los clientes que tengan el token actúan con esa cuenta. Para cuentas o workspaces diferentes, ejecuta instancias separadas. No implementa un proveedor OAuth ni descubrimiento OAuth para clientes que lo exijan.
+El endpoint es `POST /mcp` con `Authorization: Bearer <ALTEIL_MCP_HTTP_TOKEN>`. El cliente debe soportar Streamable HTTP y cabeceras de autenticación configurables. Se usa modo stateless, sin sesiones MCP persistentes ni canal GET/SSE. El token HTTP es independiente de las credenciales de cada producto. Todos los clientes de una instancia comparten los permisos y la cuenta/local configurados por módulo. Para cuentas o workspaces diferentes, ejecuta instancias separadas. No implementa un proveedor OAuth ni descubrimiento OAuth para clientes que lo exijan. Las variables comunes `ALTEIL_MCP_*` tienen prioridad; si no están definidas se aceptan sus alias anteriores `ORBIT_MCP_*`. `ORBIT_MCP_READ_ONLY` y `ORBIT_MCP_ALLOW_SECRETS` siguen siendo exclusivos de Orbit.
 
-Usa un proxy HTTPS para el acceso remoto. Mantén la comprobación de Host mediante `ORBIT_MCP_ALLOWED_HOSTS` (nombres sin protocolo ni puerto), y configura el proxy para conservar ese Host. Las peticiones con cabecera Origin se rechazan salvo inclusión exacta en `ORBIT_MCP_ALLOWED_ORIGINS`. Esta lista permite peticiones de clientes nativos que envíen Origin; el servidor no ofrece una integración CORS para aplicaciones web. Las peticiones están limitadas a 1 MiB. Los errores no muestran cuerpos de PocketBase ni credenciales.
+Usa un proxy HTTPS para el acceso remoto. Mantén la comprobación de Host mediante `ALTEIL_MCP_ALLOWED_HOSTS` (nombres sin protocolo ni puerto), y configura el proxy para conservar ese Host. Las peticiones con cabecera Origin se rechazan salvo inclusión exacta en `ALTEIL_MCP_ALLOWED_ORIGINS`. Esta lista permite peticiones de clientes nativos que envíen Origin; el servidor no ofrece una integración CORS para aplicaciones web. Las peticiones están limitadas a 1 MiB. Los errores no muestran cuerpos de PocketBase ni credenciales.
 
 ### Docker / Coolify
 
 El proyecto y el Dockerfile fijan pnpm 10.32.1, la versión compatible con el lockfile y con `pnpm.overrides` de `package.json`. Si un build antiguo descarga pnpm 12 y falla con `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`, despliega los cambios de `package.json` y `mcp/Dockerfile` y vuelve a construir. Conserva `--frozen-lockfile`.
 
-Construye desde la raíz del repositorio con Dockerfile `mcp/Dockerfile`, puerto 3100, las variables de `.env.mcp.example` y un dominio HTTPS. Configura `ORBIT_MCP_ALLOWED_HOSTS` con ese dominio. La imagen escucha en `0.0.0.0`; PocketBase remoto debe tener HTTPS. La imagen no incluye archivos `.env` ni datos locales.
+Construye desde la raíz del repositorio con Dockerfile `mcp/Dockerfile`, puerto 3100, las variables de `.env.mcp.example` y un dominio HTTPS. Configura `ALTEIL_MCP_ALLOWED_HOSTS` con ese dominio. La imagen escucha en `0.0.0.0`; PocketBase remoto debe tener HTTPS. La imagen incluye todos los módulos, pero solo carga los seleccionados. No incluye archivos `.env` ni datos locales.
 
 ```sh
 docker build -f mcp/Dockerfile -t orbit-mcp .
-docker run --rm --env-file .env.mcp.local -e ORBIT_MCP_TRANSPORT=http -e ORBIT_MCP_HOST=0.0.0.0 -p 127.0.0.1:3100:3100 orbit-mcp
+docker run --rm --env-file .env.mcp.local -e ALTEIL_MCP_TRANSPORT=http -e ALTEIL_MCP_HOST=0.0.0.0 -p 127.0.0.1:3100:3100 orbit-mcp
 ```
 
 Dentro del contenedor, `127.0.0.1` apunta al propio contenedor. Configura la URL HTTPS real de PocketBase. No hay endpoint de salud público: el supervisor puede verificar el proceso o el puerto, y una comprobación MCP autenticada puede llamar a `orbit_whoami` para comprobar también PocketBase.
@@ -149,6 +151,6 @@ pnpm test:pocketbase
 pnpm build
 ```
 
-Las pruebas MCP negocian stdio, descubren herramientas/recursos/prompts y usan un PocketBase local aislado para verificar operaciones reales, comisiones, fórmulas, permisos admin/user, aislamiento entre organizaciones, secretos, modo lectura, token de usuario, monitorización y Streamable HTTP autenticado. No usan `.env.local`, cuentas ni datos de producción.
+Las pruebas MCP negocian stdio, descubren herramientas/recursos/prompts y usan un PocketBase local aislado para verificar operaciones reales de Orbit. Tickit se comprueba con el SDK oficial de Supabase y respuestas simuladas de Auth/PostgREST, además de RPC reales del catálogo ejecutados en Postgres embebido. No usan `.env.local`, cuentas ni datos de staging o producción. Consulta la guía modular para el alcance y las pruebas.
 
 Referencias: [SDK oficial MCP](https://github.com/modelcontextprotocol/typescript-sdk/tree/v1.x), [documentación oficial para servidores](https://modelcontextprotocol.io/docs/develop/build-server).
