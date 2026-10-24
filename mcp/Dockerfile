@@ -1,7 +1,7 @@
 # Build from the repository root: docker build -f mcp/Dockerfile -t orbit-mcp .
 FROM node:24-alpine AS dependencies
 WORKDIR /app
-RUN corepack enable
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 

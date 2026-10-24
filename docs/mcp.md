@@ -124,6 +124,8 @@ Usa un proxy HTTPS para el acceso remoto. Mantén la comprobación de Host media
 
 ### Docker / Coolify
 
+El proyecto y el Dockerfile fijan pnpm 10.32.1, la versión compatible con el lockfile y con `pnpm.overrides` de `package.json`. Si un build antiguo descarga pnpm 12 y falla con `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`, despliega los cambios de `package.json` y `mcp/Dockerfile` y vuelve a construir. Conserva `--frozen-lockfile`.
+
 Construye desde la raíz del repositorio con Dockerfile `mcp/Dockerfile`, puerto 3100, las variables de `.env.mcp.example` y un dominio HTTPS. Configura `ORBIT_MCP_ALLOWED_HOSTS` con ese dominio. La imagen escucha en `0.0.0.0`; PocketBase remoto debe tener HTTPS. La imagen no incluye archivos `.env` ni datos locales.
 
 ```sh
