@@ -1,0 +1,7 @@
+node_modules
+.next
+.git
+.pocketbase-test
+.env*
+pocketbase/pb_data
+*.tsbuildinfo

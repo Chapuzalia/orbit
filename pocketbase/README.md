@@ -1,5 +1,7 @@
 # Orbit: instalacion nueva en PocketBase 0.40.5
 
+Para conectar un agente de IA a las funciones de Orbit, consulta la [guía del servidor MCP](../docs/mcp.md), con transporte local stdio y Streamable HTTP autenticado.
+
 Orbit empieza desde cero: la migracion crea las colecciones vacias, sin importar datos, cuentas, contrasenas ni sesiones de Supabase. No introduce registros de ejemplo.
 
 La web usa el SDK oficial y cuentas de la coleccion `users`, siguiendo el patron de Mess. La monitorizacion se ejecuta en hooks del servidor. Usa una instancia y un volumen de datos propios para Orbit.
