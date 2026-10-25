@@ -30,7 +30,7 @@ export function createAlteilServer({ modules, readOnly = false }) {
     module.register({ server, catalog: localCatalog, register: (...args) => register(module, localCatalog, ...args) })
   }
   const describe = () => ({ modules: modules.map((module) => ({ id: module.id, version: module.version, description: module.description, ...module.metadata?.(), read_only: readOnly || module.config.readOnly,
-    tools: catalog.filter((tool) => tool.module === module.id).map((tool) => tool.name) })), reload: 'Reinicia el proceso para cambiar los módulos o permisos.', credential_scope: 'El alcance depende de cada módulo: Orbit usa su cuenta/workspace; Tickit tiene permisos de superadmin de plataforma. Todos los clientes de esta instancia comparten esos permisos.' })
+    tools: catalog.filter((tool) => tool.module === module.id).map((tool) => tool.name) })), reload: 'Reinicia el proceso para cambiar los módulos o permisos.', credential_scope: 'Cada módulo declara su alcance y utiliza sus propias credenciales. Todos los clientes de esta instancia comparten esos permisos.' })
   const core = { id: 'alteil', config: { readOnly: true } }
   register(core, [], 'alteil_modules', 'Lista los módulos habilitados, versiones, entorno y permisos sin conectar a sus servicios.', z.object({}).strict(), async () => describe(), { readOnly: true })
   register(core, [], 'alteil_capabilities', 'Catálogo efectivo de herramientas de todos los productos habilitados.', z.object({}).strict(), async () => ({ ...describe(), tools: catalog }), { readOnly: true })

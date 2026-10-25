@@ -1,6 +1,6 @@
 # MCP modular de Alteil
 
-Un endpoint `/mcp`, con núcleo común y módulos independientes. **Orbit** usa PocketBase con su cuenta/workspace. **Tickit POS v3** usa directamente el Supabase de staging con una clave `service_role` o `sb_secret_` y permisos de **superadmin de toda la plataforma**. No necesita la API Express de Tickit ni iniciar sesión personalmente en su interfaz.
+Un endpoint `/mcp`, con núcleo común y módulos independientes. **Orbit** usa PocketBase con su cuenta/workspace. **Tickit POS v3** usa directamente el Supabase de staging con una clave `service_role` o `sb_secret_` y permisos de **superadmin de toda la plataforma**. **MESS** gestiona su calendario de reservas mediante su propio PocketBase; consulta la [configuración y ejemplos de MESS](mcp-mess.md). Tickit no necesita su API Express ni iniciar sesión personalmente en su interfaz.
 
 ## Arquitectura y activación
 
@@ -10,6 +10,7 @@ mcp/
   transports/              # Streamable HTTP y stdio
   modules/
     orbit/                 # Herramientas de Orbit/PocketBase
+    mess/                  # Calendario operativo de reservas MESS/PocketBase
     tickit-pos/
       index.mjs            # Registro de herramientas
       admin-schema.mjs     # Entidades, campos y contratos de administración
@@ -18,7 +19,7 @@ mcp/
       users.mjs            # Auth Admin, superadmins y accesos globales
 ```
 
-`ALTEIL_MODULES=orbit,tickit_pos` activa ambos productos. Si se omite se carga solo Orbit, conservando los despliegues anteriores. Cada módulo exige únicamente sus propias credenciales. El registro solo permite módulos incluidos en el código. Reinicia el proceso para cambiar módulos o permisos.
+`ALTEIL_MODULES=orbit,tickit_pos,mess` activa los tres productos. Puedes elegir cualquier combinación. Si se omite se carga solo Orbit, conservando los despliegues anteriores. Cada módulo exige únicamente sus propias credenciales. El registro solo permite módulos incluidos en el código. Reinicia el proceso para cambiar módulos o permisos.
 
 Las variables comunes `ALTEIL_MCP_*` tienen prioridad sobre los antiguos alias `ORBIT_MCP_*` de transporte. Las herramientas `orbit_*` conservan nombres, argumentos y permisos.
 
@@ -28,6 +29,7 @@ Las variables comunes `ALTEIL_MCP_*` tienen prioridad sobre los antiguos alias `
 | `ORBIT_MCP_READ_ONLY=true` | Solo lectura en Orbit |
 | `ORBIT_MCP_ALLOW_SECRETS=true` | Permite lectura explícita de contraseñas en Orbit |
 | `TICKIT_POS_READ_ONLY=true` | Solo lectura en Tickit |
+| `MESS_READ_ONLY=true` | Solo lectura en el calendario de MESS |
 
 El token del endpoint MCP comparte los permisos de sus módulos con todos los agentes que lo utilicen. En Tickit esos permisos son globales: no existe una selección fija de empresa o local como límite de autorización. El transporte usa Bearer, sin OAuth ni permisos individuales por cliente MCP.
 

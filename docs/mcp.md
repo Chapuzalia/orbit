@@ -1,8 +1,8 @@
 # MCP modular de Alteil
 
-Servidor MCP para conectar agentes a los productos de Alteil. Incluye los módulos **Orbit (PocketBase)** y **Tickit POS (Supabase staging con service_role)**. Usa el SDK oficial `@modelcontextprotocol/sdk` 1.29.0, con transportes **stdio** y **Streamable HTTP**. Se ejecuta como un proceso independiente de Next.js. Orbit conserva sus herramientas y reglas de PocketBase.
+Servidor MCP para conectar agentes a los productos de Alteil. Incluye los módulos **Orbit (PocketBase)**, **Tickit POS (Supabase staging con service_role)** y **MESS (calendario de reservas en PocketBase)**. Usa el SDK oficial `@modelcontextprotocol/sdk` 1.29.0, con transportes **stdio** y **Streamable HTTP**. Se ejecuta como un proceso independiente de Next.js. Orbit conserva sus herramientas y reglas de PocketBase.
 
-Consulta la [arquitectura modular, configuración de Tickit POS y ejemplo de Coolify](mcp-modules.md). Tickit tiene acceso de **superadmin de plataforma**, sin empresa o local fijos. `ALTEIL_MODULES=orbit,tickit_pos` habilita ambos productos; si la variable no existe se carga solo Orbit para conservar los despliegues anteriores. Solo necesitas credenciales de los módulos habilitados.
+Consulta la [arquitectura modular, configuración de Tickit POS y ejemplo de Coolify](mcp-modules.md) y la [guía de reservas de MESS](mcp-mess.md). Tickit tiene acceso de **superadmin de plataforma**, sin empresa o local fijos. `ALTEIL_MODULES=orbit,tickit_pos,mess` habilita los tres productos; si la variable no existe se carga solo Orbit para conservar los despliegues anteriores. Solo necesitas credenciales de los módulos habilitados.
 
 ## Arranque local
 

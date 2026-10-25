@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "test:pocketbase": "node --test tests/pocketbase.integration.test.mjs",
     "mcp": "node --env-file-if-exists=.env.mcp.local mcp/index.mjs",
-    "test:mcp": "node --test tests/mcp.test.mjs tests/mcp-modules.test.mjs tests/tickit-supabase.test.mjs tests/tickit-catalog-sql.test.mjs"
+    "test:mcp": "node --test tests/mcp.test.mjs tests/mcp-modules.test.mjs tests/tickit-supabase.test.mjs tests/tickit-catalog-sql.test.mjs tests/mess-mcp.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

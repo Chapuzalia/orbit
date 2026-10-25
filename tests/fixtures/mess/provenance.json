@@ -1,0 +1,21 @@
+{
+  "source": "MESS web/pocketbase (local checkout)",
+  "source_repository": "Chapuzalia/web_mess",
+  "snapshot_date": "2026-10-25",
+  "pocketbase_version": "0.40.5",
+  "purpose": "Isolated MCP integration tests. Never apply to a deployed MESS database.",
+  "files": [
+    {
+      "file": "pb_migrations/1791849600_mess_initial.js",
+      "sha256": "df1c4172b01966544c82cbe1110dcc7d2b5f1c1435077b7e4d1a0eb469304045"
+    },
+    {
+      "file": "pb_hooks/mess.pb.js",
+      "sha256": "bb08b2c3369fd018253fe959bada84c960ecbe69d911f4428fa4e058f44d50a4"
+    },
+    {
+      "file": "pb_hooks/reminders.js",
+      "sha256": "eaf85aaf8bc631fe5f36fd710d63f753299ec38ff517f42b98b640fc583b0d8d"
+    }
+  ]
+}
