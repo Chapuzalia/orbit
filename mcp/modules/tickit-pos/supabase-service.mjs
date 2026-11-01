@@ -4,6 +4,8 @@ import { readBoolean } from '../../core/config.mjs'
 import { uuid, entities, columnsFor, listSchema, entityDataSchema, tenantConfigureSchema, tenantConfigContract } from './admin-schema.mjs'
 import { catalogCommands } from './catalog.mjs'
 import { TickitUsers } from './users.mjs'
+import { TickitBilling } from './billing.mjs'
+import { venueOperationsContract } from './venue-operations.mjs'
 
 export class TickitError extends Error {
   constructor(code, message, details) { super(message); this.code = code; this.details = details }
@@ -23,8 +25,11 @@ export function readTickitConfig(env = process.env) {
   let role
   try { role = JSON.parse(Buffer.from(serviceRoleKey.split('.')[1], 'base64url').toString()).role } catch {}
   if (!serviceRoleKey.startsWith('sb_secret_') && role !== 'service_role') throw new Error('Configura TICKIT_POS_SERVICE_ROLE_KEY con una clave service_role o sb_secret_ de staging.')
+  const billingEmail = env.TICKIT_POS_BILLING_EMAIL || ''
+  const billingPassword = env.TICKIT_POS_BILLING_PASSWORD || ''
+  if (Boolean(billingEmail) !== Boolean(billingPassword)) throw new Error('Configura conjuntamente TICKIT_POS_BILLING_EMAIL y TICKIT_POS_BILLING_PASSWORD.')
   // Service authority is platform-wide. Legacy tenant/venue pins are intentionally ignored.
-  return { url: url.origin, serviceRoleKey, access: 'platform_superadmin', environment,
+  return { url: url.origin, serviceRoleKey, billingEmail, billingPassword, access: 'platform_superadmin', environment,
     readOnly: readBoolean(env.TICKIT_POS_READ_ONLY, false, 'TICKIT_POS_READ_ONLY') }
 }
 
@@ -32,34 +37,35 @@ const forbidden = /^(password|encrypted_password|access_token|refresh_token|serv
 export class TickitPosService {
   constructor(config, { fetchImpl = fetch } = {}) {
     this.config = config
+    this.fetchImpl = async (url, options = {}) => {
+      const response = await fetchImpl(url, { ...options, redirect: 'error', signal: options.signal || AbortSignal.timeout(15000) })
+      if (Number(response.headers.get('content-length')) > 4 * 1024 * 1024) { await response.body?.cancel(); throw new Error('Response too large') }
+      // Bound responses before the SDK parses them; neither SDK errors nor tool output receive raw secrets.
+      if (!response.body) return response
+      const reader = response.body.getReader()
+      const chunks = []
+      let bytes = 0
+      try {
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          bytes += value.byteLength
+          if (bytes > 4 * 1024 * 1024) { await reader.cancel(); throw new Error('Response too large') }
+          chunks.push(value)
+        }
+      } finally { reader.releaseLock() }
+      return new Response([204, 205, 304].includes(response.status) ? null : Buffer.concat(chunks), { status: response.status, statusText: response.statusText, headers: response.headers })
+    }
     this.db = createClient(config.url, config.serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-      db: { schema: 'public', retry: false },
-      global: { fetch: async (url, options = {}) => {
-        const response = await fetchImpl(url, { ...options, redirect: 'error', signal: options.signal || AbortSignal.timeout(15000) })
-        if (Number(response.headers.get('content-length')) > 4 * 1024 * 1024) { await response.body?.cancel(); throw new Error('Response too large') }
-        // Bound responses before the SDK parses them; neither SDK errors nor tool output receive raw secrets.
-        if (!response.body) return response
-        const reader = response.body.getReader()
-        const chunks = []
-        let bytes = 0
-        try {
-          while (true) {
-            const { value, done } = await reader.read()
-            if (done) break
-            bytes += value.byteLength
-            if (bytes > 4 * 1024 * 1024) { await reader.cancel(); throw new Error('Response too large') }
-            chunks.push(value)
-          }
-        } finally { reader.releaseLock() }
-        return new Response([204, 205, 304].includes(response.status) ? null : Buffer.concat(chunks), { status: response.status, statusText: response.statusText, headers: response.headers })
-      } },
+      db: { schema: 'public', retry: false }, global: { fetch: this.fetchImpl },
     })
     this.users = new TickitUsers(this)
+    this.billing = new TickitBilling(this)
   }
-  sanitize(value) {
-    if (typeof value === 'string') return value.replaceAll(this.config.serviceRoleKey, '[REDACTED]')
-    if (Array.isArray(value)) return value.map((item) => this.sanitize(item))
-    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([key]) => !forbidden.test(key)).map(([key, item]) => [key, this.sanitize(item)]))
+  sanitize(value, additionalSecrets = []) {
+    if (typeof value === 'string') return [this.config.serviceRoleKey, this.config.billingPassword, this.config.billingEmail, ...additionalSecrets].filter(Boolean).reduce((text, secret) => text.replaceAll(secret, '[REDACTED]'), value)
+    if (Array.isArray(value)) return value.map((item) => this.sanitize(item, additionalSecrets))
+    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([key]) => !forbidden.test(key)).map(([key, item]) => [key, this.sanitize(item, additionalSecrets)]))
     return value
   }
   assertWrite(confirm) {
@@ -80,7 +86,7 @@ export class TickitPosService {
   }
   forTenant(tenantId) {
     // Per-call data-integrity context, never a permission boundary or shared mutable selection.
-    return Object.assign(Object.create(Object.getPrototypeOf(this)), { config: { ...this.config, tenantId: uuid.parse(tenantId) }, db: this.db, users: this.users })
+    return Object.assign(Object.create(Object.getPrototypeOf(this)), { config: { ...this.config, tenantId: uuid.parse(tenantId) }, db: this.db, users: this.users, billing: this.billing, fetchImpl: this.fetchImpl })
   }
   async tenant(tenantId = this.config.tenantId) {
     if (!uuid.safeParse(tenantId).success) throw new TickitError('TENANT_REQUIRED', 'Indica tenant_id de destino.')
@@ -113,6 +119,8 @@ export class TickitPosService {
       entities: Object.fromEntries(Object.entries(entities).map(([key, def]) => [key, { operations: def.operations.filter((op) => !this.config.readOnly || ['list', 'get'].includes(op)), fields: columnsFor(key) }])),
       catalog_commands: this.config.readOnly ? [] : Object.keys(catalogCommands), limits: { page_size: 100, response_bytes: 4194304 },
       tenant_configuration: tenantConfigContract,
+      billing: this.billing.capabilities(),
+      venue_operations: venueOperationsContract,
     }
   }
   async execute(table, operation, input) {

@@ -1,6 +1,6 @@
 # MCP modular de Alteil
 
-Un endpoint `/mcp`, con núcleo común y módulos independientes. **Orbit** usa PocketBase con su cuenta/workspace. **Tickit POS v3** usa directamente el Supabase de staging con una clave `service_role` o `sb_secret_` y permisos de **superadmin de toda la plataforma**. **MESS** gestiona su calendario de reservas mediante su propio PocketBase; consulta la [configuración y ejemplos de MESS](mcp-mess.md). Tickit no necesita su API Express ni iniciar sesión personalmente en su interfaz.
+Un endpoint `/mcp`, con núcleo común y módulos independientes. **Orbit** usa PocketBase con su cuenta/workspace. **Tickit POS v3.1** usa directamente el Supabase de staging con una clave `service_role` o `sb_secret_` y permisos de **superadmin de toda la plataforma**. La [facturación Stripe sandbox](mcp-tickit-billing.md) usa además una cuenta Auth Superadmin dedicada para invocar el servicio existente de POS. **MESS** gestiona su calendario de reservas mediante su propio PocketBase; consulta la [configuración y ejemplos de MESS](mcp-mess.md). Tickit no necesita su API Express ni iniciar sesión personalmente en su interfaz.
 
 ## Arquitectura y activación
 
@@ -95,10 +95,11 @@ Tickit publica **147 herramientas** con escrituras habilitadas. Cada escritura e
 | --- | --- |
 | Empresas | `tenants_list/get/create/update/delete`; alta, edición, activación y borrado de cualquier empresa |
 | Plan y funciones | `platform_features_list`, `tenant_feature_assignments_list`, `platform_tenant_configure` |
+| Facturación Stripe test | `billing_catalog/overview/get`, tarifas, presupuestos, confirmación, Portal, cancelaciones, conciliación y recuperación; [configuración y alta completa](mcp-tickit-billing.md) |
 | Usuarios globales | `users_list/get/create/update/delete`, incluidos superadmins, cuentas compartidas y cuentas sin empresa |
 | Accesos | `access_grant/revoke`: owner/manager/cashier en cualquier empresa; cambio de rol y reactivación |
 | Catálogo | Productos, variantes, pestañas, categorías, formatos, ubicaciones, selecciones, modificadores, orden e imágenes |
-| Locales y terminales | Listar, crear y editar locales, dispositivos y capacidades |
+| Locales y terminales | Listar, crear y editar locales, dispositivos y capacidades; `venue_operations_configure` activa mesas/producción/inventario ya contratados |
 | Clientes y proveedores | Listar, crear y editar |
 | Mesas | Zonas, mesas y geometría |
 | Inventario y producción | Gestión de unidades, almacenes, destinos y pases; consultas de existencias, movimientos, lotes y elementos |
@@ -226,6 +227,8 @@ Las herramientas de imagen registran archivos existentes bajo `<tenant>/<venue>/
 - Los módulos comparten proceso y son código confiable del despliegue.
 
 `pnpm test:mcp` verifica Orbit con PocketBase aislado, negociación MCP, permisos por módulo y SDK real de Supabase con transporte simulado. Cubre administración global, cuentas compartidas, superadmins, cambios de rol, compensaciones, filtros, integridad de referencias y operaciones concurrentes en distintas empresas.
+
+La ampliación de facturación comprueba descubrimiento MCP, el flujo empresa/owner/dispositivo/acceso/Checkout, contrato de las catorce acciones frente al snapshot del validador POS, sesiones aisladas, modo solo lectura, privacidad y recuperación ante respuestas perdidas. No ejecuta pagos reales ni una aceptación remota de Stripe/Edge Functions.
 
 `tests/fixtures/tickit-catalog.sql` conserva un snapshot identificado del SQL del POS. PGlite ejecuta esos RPC reales y comprueba formatos, céntimos, rollback y coherencia de local. Los helpers de identidad se sustituyen solo en la base aislada de pruebas.
 

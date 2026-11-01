@@ -4,6 +4,8 @@ Servidor MCP para conectar agentes a los productos de Alteil. Incluye los módul
 
 Consulta la [arquitectura modular, configuración de Tickit POS y ejemplo de Coolify](mcp-modules.md) y la [guía de reservas de MESS](mcp-mess.md). Tickit tiene acceso de **superadmin de plataforma**, sin empresa o local fijos. `ALTEIL_MODULES=orbit,tickit_pos,mess` habilita los tres productos; si la variable no existe se carga solo Orbit para conservar los despliegues anteriores. Solo necesitas credenciales de los módulos habilitados.
 
+Tickit POS incluye [gestión de facturación Stripe sandbox y guía de alta de empresas](mcp-tickit-billing.md): planes, complementos, presupuestos, Checkout, cambios de suscripción y conciliación mediante el servicio de POS. Esto es independiente de los registros de facturación locales de Orbit.
+
 ## Arranque local
 
 Requiere Node.js 24. Para habilitar Orbit, PocketBase necesita sus migraciones y hooks actuales; para Tickit, configura el Supabase de staging según la guía modular.
