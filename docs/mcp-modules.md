@@ -85,6 +85,8 @@ Grokbot solo necesita ese token, no la clave de Supabase. Si su conector admite 
 
 La respuesta de Tickit incluye `access:"platform_superadmin"` y `scope:"platform"`. Una caída de Tickit no impide usar Orbit. Health no certifica todas las migraciones: staging debe tener las tablas y RPC actuales del monorepo POS.
 
+Si el agente ve `tickit_pos_users_create` sin campos de entrada, redespliega la versión que publica el objeto subyacente de los esquemas Zod refinados y actualiza el catálogo de herramientas del cliente MCP. El SDK 1.29.0 con Zod 3 omite esos campos en `tools/list` cuando recibe un `.refine()` o `.superRefine()` en la raíz. El núcleo publica sus campos y conserva la validación completa antes de ejecutar la operación. El alta de un propietario admite `email`, `password`, `full_name`, `role:"owner"`, `tenant_id` y `confirm:true`; crear la empresa no crea automáticamente su propietario.
+
 ## Administración de plataforma
 
 Tickit publica **147 herramientas** con escrituras habilitadas. Cada escritura exige `confirm:true`; el modo lectura las oculta y bloquea también en ejecución.

@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { resolve } from 'node:path'
+import { z } from 'zod'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
@@ -11,6 +12,7 @@ import { createAlteilServer } from '../mcp/core/server.mjs'
 import { createAlteilHttpServer } from '../mcp/transports/http.mjs'
 import { createOrbitModule } from '../mcp/modules/orbit/index.mjs'
 import { createTickitPosModule } from '../mcp/modules/tickit-pos/index.mjs'
+import { createMessModule } from '../mcp/modules/mess/index.mjs'
 import { TickitPosService, readTickitConfig } from '../mcp/modules/tickit-pos/service.mjs'
 import { createSupabaseFixture, tickitEnv, serviceRoleKey, ids } from './helpers/tickit-supabase.mjs'
 
@@ -53,10 +55,60 @@ test('stdio exposes administrative Tickit tools without Orbit or Express credent
   await client.connect(new StdioClientTransport({ command: process.execPath, args: [resolve('mcp/index.mjs')], env: { PATH: process.env.PATH || process.env.Path || '', ...tickitEnv }, stderr: 'pipe' }))
   const { tools } = await client.listTools()
   for (const name of ['tickit_pos_users_create', 'tickit_pos_access_grant', 'tickit_pos_products_create', 'tickit_pos_devices_create']) assert.ok(tools.some((tool) => tool.name === name), name)
+  const ownerInput = tools.find((tool) => tool.name === 'tickit_pos_users_create').inputSchema
+  for (const field of ['email', 'password', 'role', 'tenant_id', 'confirm']) assert.ok(ownerInput.properties?.[field], field)
   assert.ok(!tools.some((tool) => tool.name.startsWith('orbit_') || tool.name === 'tickit_pos_order_submit'))
   const modules = await call(client, 'alteil_modules')
   assert.equal(modules.modules[0].backend, 'supabase')
   assert.ok(!JSON.stringify(modules).includes(serviceRoleKey))
+})
+
+test('tool discovery exposes refined schemas and supports creating a tenant owner', async (t) => {
+  const fixture = createSupabaseFixture()
+  const service = new TickitPosService(readTickitConfig(tickitEnv), fixture)
+  const client = await connect([createTickitPosModule(service), createMessModule({ config: { authCollection: 'users', readOnly: false } })], t)
+  const { tools } = await client.listTools()
+  for (const [name, fields, required] of [
+    ['tickit_pos_users_create', ['email', 'password', 'full_name', 'tenant_id', 'role', 'venue_ids', 'device_id', 'email_confirm', 'confirm'], ['email', 'password', 'confirm']],
+    ['tickit_pos_access_grant', ['user_id', 'tenant_id', 'role', 'venue_ids', 'device_id', 'confirm'], ['user_id', 'tenant_id', 'role', 'confirm']],
+    ['mess_reservations_list', ['from', 'to', 'search', 'waiter_id', 'needs_dj', 'deposit_paid', 'page', 'per_page'], []],
+  ]) {
+    const schema = tools.find((tool) => tool.name === name).inputSchema
+    for (const field of fields) assert.ok(schema.properties?.[field], `${name} must advertise ${field}`)
+    for (const field of required) assert.ok(schema.required.includes(field), `${name} must require ${field}`)
+    assert.equal(schema.additionalProperties, false)
+  }
+  const ownerSchema = tools.find((tool) => tool.name === 'tickit_pos_users_create').inputSchema
+  assert.ok(ownerSchema.properties.role.enum.includes('owner'))
+  assert.equal(ownerSchema.properties.email_confirm.default, true)
+  const owner = await call(client, 'tickit_pos_users_create', {
+    email: 'owner@example.com', password: 'Test-only-password-123', full_name: 'Tenant owner', role: 'owner', tenant_id: ids.tenant, confirm: true,
+  })
+  assert.equal(owner.memberships[0].tenant_id, ids.tenant)
+  assert.equal(owner.memberships[0].role, 'owner')
+  assert.equal(fixture.state.users.get(owner.id).banned_until, null)
+})
+
+test('publishing refined object fields preserves cross-field validation before the handler', async (t) => {
+  let calls = 0
+  const module = {
+    id: 'validation', version: '1.0.0', config: { readOnly: false }, health: async () => ({ connected: true }),
+    register({ register }) {
+      const schema = z.object({ from: z.number(), to: z.number() }).strict()
+        .refine((value) => value.from <= value.to, 'Invalid range')
+        .superRefine(async (value, ctx) => { if (value.to > 10) ctx.addIssue({ code: 'custom', message: 'Range too large' }) })
+      register('validation_range', 'Validates a range.', schema, async (input) => { calls++; return input }, { readOnly: true })
+    },
+  }
+  const client = await connect([module], t)
+  const schema = (await client.listTools()).tools.find((tool) => tool.name === 'validation_range').inputSchema
+  assert.deepEqual(Object.keys(schema.properties), ['from', 'to'])
+  for (const input of [{ from: 2, to: 1 }, { from: 1, to: 11 }, { from: 1, to: 2, extra: true }]) {
+    assert.equal((await client.callTool({ name: 'validation_range', arguments: input })).isError, true)
+  }
+  assert.equal(calls, 0)
+  assert.deepEqual(await call(client, 'validation_range', { from: 1, to: 2 }), { from: 1, to: 2 })
+  assert.equal(calls, 1)
 })
 
 test('both products share one endpoint while errors and catalogs remain independent', async (t) => {

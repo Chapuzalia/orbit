@@ -4,6 +4,14 @@ import { z } from 'zod'
 const json = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value) }], structuredContent: value })
 const genericError = () => ({ code: 'ALTEIL_MCP_ERROR', message: 'No se pudo completar la operación del módulo.' })
 
+function discoverySchema(schema) {
+  // SDK 1.x only advertises fields for plain ZodObjects. Keep refinements for
+  // execution, but expose their underlying object to tools/list.
+  while (schema instanceof z.ZodEffects && schema._def.effect.type === 'refinement') schema = schema.innerType()
+  if (!(schema instanceof z.ZodObject)) throw new Error('Las herramientas MCP requieren un esquema de objeto, opcionalmente con refinamientos.')
+  return schema
+}
+
 export function createAlteilServer({ modules, readOnly = false }) {
   if (!modules.length || new Set(modules.map((m) => m.id)).size !== modules.length) throw new Error('El servidor necesita módulos con identificadores únicos.')
   const server = new McpServer({ name: 'alteil', version: '2.0.0' }, {
@@ -19,9 +27,10 @@ export function createAlteilServer({ modules, readOnly = false }) {
     const entry = { name, description, read_only: toolReadOnly, module: module.id }
     catalog.push(entry)
     localCatalog.push(entry)
-    server.registerTool(name, { description, inputSchema, annotations: { readOnlyHint: toolReadOnly, destructiveHint: destructive, idempotentHint: idempotent || toolReadOnly, openWorldHint: false } }, async (args) => {
+    const publishedSchema = discoverySchema(inputSchema)
+    server.registerTool(name, { description, inputSchema: publishedSchema, annotations: { readOnlyHint: toolReadOnly, destructiveHint: destructive, idempotentHint: idempotent || toolReadOnly, openWorldHint: false } }, async (args) => {
       if (!toolReadOnly && (readOnly || module.config.readOnly)) return { ...json({ error: { code: 'READ_ONLY', message: 'Este módulo está en modo solo lectura.' } }), isError: true }
-      try { return json(await handler(args)) }
+      try { return json(await handler(publishedSchema === inputSchema ? args : await inputSchema.parseAsync(args))) }
       catch (error) { return { ...json({ error: (module.formatError || genericError)(error) }), isError: true } }
     })
   }
