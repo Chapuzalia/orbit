@@ -86,7 +86,7 @@ export function listSchema(entityName) {
   }).strict()
 }
 
-export const userCreateSchema = z.object({ email: z.string().email().max(254), password: z.string().min(8).max(72), full_name: name.optional(), ...tenantInput,
+export const userCreateSchema = z.object({ email: z.string().email().max(254), password: z.string().min(8).max(72).optional().describe('Opcional para todos los roles: si se omite se usa la contraseña predeterminada.'), full_name: name.optional(), ...tenantInput,
   role: z.enum(['user', 'superadmin', 'owner', 'manager', 'cashier']).default('user'), venue_ids: z.array(uuid).max(100).default([]), device_id: uuid.optional(), email_confirm: z.boolean().default(true), confirm: z.literal(true),
 }).strict().superRefine((input, ctx) => {
   if (['owner', 'manager', 'cashier'].includes(input.role) && !input.tenant_id) ctx.addIssue({ code: 'custom', message: 'Indica tenant_id para el acceso a una empresa.' })

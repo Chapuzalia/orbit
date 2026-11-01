@@ -106,7 +106,8 @@ export class TickitUsers {
     input = userCreateSchema.parse(input)
     this.s.assertWrite(input.confirm)
     if (input.tenant_id) await this.validateAccess(input)
-    const { data } = await this.s.result(this.s.db.auth.admin.createUser({ email: input.email.trim().toLowerCase(), password: input.password,
+    const password = input.password ?? 'ay654Dfg'
+    const { data } = await this.s.result(this.s.db.auth.admin.createUser({ email: input.email.trim().toLowerCase(), password,
       email_confirm: false, ban_duration: '876000h', user_metadata: { full_name: input.full_name || '' } }), true)
     const userId = data.user?.id
     if (!userId) throw new TickitError('AUTH_CREATE_UNKNOWN', 'Auth no devolvió el ID de la cuenta. Comprueba el alta antes de repetir.', { outcome_unknown: true })

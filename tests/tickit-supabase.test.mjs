@@ -122,6 +122,36 @@ test('users_create provisions manager Auth and assignments before allowing login
   assert.ok(!JSON.stringify(result).includes(newUser().password))
 })
 
+test('all roles use the default password only when no password is supplied', async () => {
+  for (const role of [undefined, 'user', 'superadmin', 'owner', 'manager', 'cashier']) {
+    for (const password of [undefined, 'Explicit-password-123']) {
+      const { service, state } = setup()
+      const input = newUser(role ?? 'user')
+      if (role === undefined) delete input.role
+      if (password === undefined) delete input.password
+      else input.password = password
+      const user = await service.users.create(input)
+      const creation = state.requests.find((request) => request.method === 'POST' && request.path === '/auth/v1/admin/users')
+      assert.equal(creation.body.password, password ?? 'ay654Dfg')
+      if (['owner', 'manager', 'cashier'].includes(role)) {
+        assert.equal(user.memberships[0].role, role)
+        assert.equal(user.memberships[0].tenant_id, ids.tenant)
+      } else assert.deepEqual(user.memberships, [])
+      assert.equal(user.is_superadmin, role === 'superadmin')
+      assert.equal(state.users.get(user.id).banned_until, null)
+      assert.ok(!JSON.stringify(user).includes(creation.body.password))
+    }
+  }
+})
+
+test('invalid explicit passwords fail before Auth writes for every role', async () => {
+  const { service, state } = setup()
+  for (const role of ['user', 'superadmin', 'owner', 'manager', 'cashier']) {
+    for (const password of ['', null, 'short', 'x'.repeat(73)]) await assert.rejects(service.users.create({ ...newUser(role), password }))
+  }
+  assert.equal(state.requests.length, 0)
+})
+
 test('global Auth includes unattached accounts and real platform superadmins', async () => {
   const { service, rows } = setup()
   const root = await service.users.create(newUser('superadmin'))

@@ -148,6 +148,8 @@ Alta de manager en cualquier empresa:
 
 Owner requiere `tenant_id`; manager requiere también `venue_ids`; cashier requiere `device_id` disponible de esa empresa. Auth permanece bloqueado durante el alta y solo se habilita tras crear perfil y accesos. `email_confirm` es true por defecto; no se envían correos. Si falla el alta, se intenta eliminar exclusivamente la cuenta recién creada y se comunica el resultado. Un email existente no se reutiliza automáticamente.
 
+Al crear una cuenta de cualquier rol (`user`, `superadmin`, `owner`, `manager` o `cashier`), `password` es opcional: si se omite se utiliza `ay654Dfg`. Una contraseña explícita se conserva y debe tener entre 8 y 72 caracteres; una cadena vacía no activa el valor predeterminado. La respuesta de alta no incluye contraseñas.
+
 `users_list` lista Auth globalmente, incluidas cuentas sin membresía y superadmins; `tenant_id` es un filtro opcional. `users_get` devuelve todas las membresías, asignaciones de manager y dispositivos del usuario, además de su perfil y estado Auth, sin tokens ni contraseñas.
 
 `users_update` modifica cualquier cuenta compartida o superadmin: `email`, `password`, `full_name`, `is_superadmin`, `email_confirm` y `ban_duration` (`none` o duración como `24h`). No requiere entrar a Tickit.

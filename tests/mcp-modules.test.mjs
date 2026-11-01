@@ -69,7 +69,7 @@ test('tool discovery exposes refined schemas and supports creating a tenant owne
   const client = await connect([createTickitPosModule(service), createMessModule({ config: { authCollection: 'users', readOnly: false } })], t)
   const { tools } = await client.listTools()
   for (const [name, fields, required] of [
-    ['tickit_pos_users_create', ['email', 'password', 'full_name', 'tenant_id', 'role', 'venue_ids', 'device_id', 'email_confirm', 'confirm'], ['email', 'password', 'confirm']],
+    ['tickit_pos_users_create', ['email', 'password', 'full_name', 'tenant_id', 'role', 'venue_ids', 'device_id', 'email_confirm', 'confirm'], ['email', 'confirm']],
     ['tickit_pos_access_grant', ['user_id', 'tenant_id', 'role', 'venue_ids', 'device_id', 'confirm'], ['user_id', 'tenant_id', 'role', 'confirm']],
     ['mess_reservations_list', ['from', 'to', 'search', 'waiter_id', 'needs_dj', 'deposit_paid', 'page', 'per_page'], []],
   ]) {
@@ -80,13 +80,15 @@ test('tool discovery exposes refined schemas and supports creating a tenant owne
   }
   const ownerSchema = tools.find((tool) => tool.name === 'tickit_pos_users_create').inputSchema
   assert.ok(ownerSchema.properties.role.enum.includes('owner'))
+  assert.ok(!ownerSchema.required.includes('password'))
   assert.equal(ownerSchema.properties.email_confirm.default, true)
   const owner = await call(client, 'tickit_pos_users_create', {
-    email: 'owner@example.com', password: 'Test-only-password-123', full_name: 'Tenant owner', role: 'owner', tenant_id: ids.tenant, confirm: true,
+    email: 'owner@example.com', full_name: 'Tenant owner', role: 'owner', tenant_id: ids.tenant, confirm: true,
   })
   assert.equal(owner.memberships[0].tenant_id, ids.tenant)
   assert.equal(owner.memberships[0].role, 'owner')
   assert.equal(fixture.state.users.get(owner.id).banned_until, null)
+  assert.equal(fixture.state.requests.find((request) => request.method === 'POST' && request.path === '/auth/v1/admin/users').body.password, 'ay654Dfg')
 })
 
 test('publishing refined object fields preserves cross-field validation before the handler', async (t) => {
@@ -155,8 +157,9 @@ test('MCP exposes global superadmin creation, cross-company access and explicit 
   const fixture = createSupabaseFixture()
   const service = new TickitPosService(readTickitConfig(tickitEnv), fixture)
   const client = await connect([createTickitPosModule(service)], t)
-  const root = await call(client, 'tickit_pos_users_create', { email: 'root@example.com', password: 'Test-only-password-123', role: 'superadmin', confirm: true })
+  const root = await call(client, 'tickit_pos_users_create', { email: 'root@example.com', role: 'superadmin', confirm: true })
   assert.equal(root.is_superadmin, true)
+  assert.equal(fixture.state.requests.find((request) => request.method === 'POST' && request.path === '/auth/v1/admin/users').body.password, 'ay654Dfg')
   await call(client, 'tickit_pos_access_grant', { user_id: root.id, tenant_id: ids.otherTenant, role: 'owner', confirm: true })
   const user = await call(client, 'tickit_pos_users_get', { user_id: root.id })
   assert.equal(user.memberships[0].tenant_id, ids.otherTenant)
