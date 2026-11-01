@@ -1,6 +1,8 @@
 import { uuid, userCreateSchema, userUpdateSchema, accessGrantSchema } from './admin-schema.mjs'
 import { TickitError } from './supabase-service.mjs'
 
+export const DEFAULT_USER_PASSWORD = 'ay654Dfg'
+
 export class TickitUsers {
   constructor(service) { this.s = service }
   async profile(userId) {
@@ -106,7 +108,7 @@ export class TickitUsers {
     input = userCreateSchema.parse(input)
     this.s.assertWrite(input.confirm)
     if (input.tenant_id) await this.validateAccess(input)
-    const password = input.password ?? 'ay654Dfg'
+    const password = input.password ?? DEFAULT_USER_PASSWORD
     const { data } = await this.s.result(this.s.db.auth.admin.createUser({ email: input.email.trim().toLowerCase(), password,
       email_confirm: false, ban_duration: '876000h', user_metadata: { full_name: input.full_name || '' } }), true)
     const userId = data.user?.id

@@ -89,7 +89,7 @@ Si el agente ve `tickit_pos_users_create` sin campos de entrada, redespliega la 
 
 ## Administración de plataforma
 
-Tickit publica **147 herramientas** con escrituras habilitadas. Cada escritura exige `confirm:true`; el modo lectura las oculta y bloquea también en ejecución.
+Tickit publica su catálogo efectivo mediante `alteil_capabilities`. Cada escritura exige `confirm:true`; el modo lectura las oculta y bloquea también en ejecución.
 
 | Área | Herramientas y alcance |
 | --- | --- |
@@ -180,6 +180,22 @@ Alta de manager en cualquier empresa:
 Owner requiere `tenant_id`; manager requiere también `venue_ids`; cashier requiere `device_id` disponible de esa empresa. Auth permanece bloqueado durante el alta y solo se habilita tras crear perfil y accesos. `email_confirm` es true por defecto; no se envían correos. Si falla el alta, se intenta eliminar exclusivamente la cuenta recién creada y se comunica el resultado. Un email existente no se reutiliza automáticamente.
 
 Al crear una cuenta de cualquier rol (`user`, `superadmin`, `owner`, `manager` o `cashier`), `password` es opcional: si se omite se utiliza `ay654Dfg`. Una contraseña explícita se conserva y debe tener entre 8 y 72 caracteres; una cadena vacía no activa el valor predeterminado. La respuesta de alta no incluye contraseñas.
+
+### Credenciales de dispositivos
+
+Desde Tickit MCP v3.2, `tickit_pos_devices_create` crea también la cuenta Auth, el perfil, la membresía `cashier` y la fila de `device_user_assignments`. Auth permanece bloqueado hasta completar la vinculación. La respuesta conserva los campos del dispositivo y añade `access.account` con `user_id`, `email`, rol y estado, además de `access.credentials_created`. No crees después otro cajero para el mismo terminal. El prompt de onboarding ya incluye este flujo.
+
+Para completar dispositivos antiguos que aparecen como «Sin credenciales asociadas», localiza sus IDs mediante `tickit_pos_devices_list` y llama una vez por terminal a:
+
+```text
+tickit_pos_devices_credentials_create({device_id: "<UUID del dispositivo existente>", confirm: true})
+```
+
+Esta herramienta conserva el dispositivo, su configuración y cualquier cuenta ya vinculada; si ya existe un acceso válido devuelve `credentials_created:false` sin cambiar la contraseña. Las cuentas nuevas usan un email estable `dispositivo-<UUID sin guiones>@pos.tickit.invalid` y la contraseña predeterminada descrita arriba, salvo que se indique `password` en la reparación. La respuesta no muestra contraseñas ni envía correos. `device_access` en las capacidades documenta el contrato.
+
+La reparación no activa empresas, locales o dispositivos desactivados. Empresa y local deben estar activos para crear la cuenta; si el dispositivo está inactivo se crean su membresía y asignación inactivas. Los accesos múltiples, incoherentes, bloqueados o sin confirmar se devuelven para revisión. Se mantienen las comprobaciones de cajas/comandas abiertas, local y requisitos de KDS.
+
+Si falla el alta automática, se conserva el dispositivo y se devuelve su `device_id`. Ante un fallo definitivo de configuración se intenta eliminar solo la cuenta recién creada y se informa `auth_cleanup_complete`. Ante una respuesta incierta se devuelven `device_id`, `user_id`, email y etapa con `outcome_unknown:true`, sin reintentos ni borrados automáticos. Consulta los IDs antes de repetir: una cuenta creada pero sin asignación puede requerir revisión o limpieza explícita; una cuenta ya asignada pero bloqueada tampoco se habilita automáticamente. No repitas `devices_create` para recuperar un alta parcial.
 
 `users_list` lista Auth globalmente, incluidas cuentas sin membresía y superadmins; `tenant_id` es un filtro opcional. `users_get` devuelve todas las membresías, asignaciones de manager y dispositivos del usuario, además de su perfil y estado Auth, sin tokens ni contraseñas.
 

@@ -36,9 +36,10 @@ export function createSupabaseFixture() {
       }
       if (method === 'POST') {
         if ([...state.users.values()].some((user) => user.email === body.email)) return json({ code: 'email_exists', msg: 'Already registered' }, 422)
-        const user = { id: randomUUID(), email: body.email, email_confirmed_at: body.email_confirm ? '2026-10-24T00:00:00Z' : null,
+        const user = { id: body.id || randomUUID(), email: body.email, email_confirmed_at: body.email_confirm ? '2026-10-24T00:00:00Z' : null,
           banned_until: body.ban_duration ? '2126-10-24T00:00:00Z' : null }
         state.users.set(user.id, user)
+        if (state.dropAfter?.(request)) throw new TypeError('fetch failed')
         return json({ user })
       }
       const user = state.users.get(userId)
@@ -53,6 +54,7 @@ export function createSupabaseFixture() {
         state.users.delete(userId)
         for (const table of ['profiles', 'tenant_memberships', 'manager_venue_assignments', 'device_user_assignments']) tables.set(table, rows(table).filter((row) => row.id !== userId && row.user_id !== userId && row.manager_user_id !== userId))
       }
+      if (state.dropAfter?.(request)) throw new TypeError('fetch failed')
       return json({ user })
     }
     if (url.pathname.startsWith('/rest/v1/rpc/')) {
@@ -101,12 +103,13 @@ export function createSupabaseFixture() {
     })
     let selected = rows(table).filter(matches)
     if (method === 'POST') {
+      if (table === 'device_user_assignments' && body.is_active && rows(table).some((row) => row.tenant_id === body.tenant_id && row.device_id === body.device_id && row.user_id !== body.user_id && row.is_active)) return json({ code: '23505', message: 'one_active_user_per_device' }, 409)
       selected = []
       for (const item of Array.isArray(body) ? body : [body]) {
         const conflict = (url.searchParams.get('on_conflict') || 'id').split(',')
         const existing = rows(table).find((row) => conflict.every((key) => item[key] !== undefined && row[key] === item[key]))
         if (existing && headers.get('Prefer')?.includes('merge-duplicates')) { Object.assign(existing, item); selected.push(existing) }
-        else { const row = { id: item.id || randomUUID(), ...item }; rows(table).push(row); selected.push(row) }
+        else { const row = { ...(['tenants', 'venues', 'devices'].includes(table) ? { is_active: true } : {}), id: item.id || randomUUID(), ...item }; rows(table).push(row); selected.push(row) }
       }
     }
     if (method === 'PATCH') for (const row of selected) Object.assign(row, body)

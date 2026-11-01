@@ -6,6 +6,7 @@ import { catalogCommands } from './catalog.mjs'
 import { TickitUsers } from './users.mjs'
 import { TickitBilling } from './billing.mjs'
 import { venueOperationsContract } from './venue-operations.mjs'
+import { provisionDeviceCredentials, deviceAccessContract } from './devices.mjs'
 
 export class TickitError extends Error {
   constructor(code, message, details) { super(message); this.code = code; this.details = details }
@@ -121,6 +122,7 @@ export class TickitPosService {
       tenant_configuration: tenantConfigContract,
       billing: this.billing.capabilities(),
       venue_operations: venueOperationsContract,
+      device_access: deviceAccessContract,
     }
   }
   async execute(table, operation, input) {
@@ -183,12 +185,30 @@ export class TickitPosService {
       values.content_unit_id ??= values.id
       values.content_quantity ??= 1
     }
-    if (table === 'devices') values = await this.deviceValues({ ...existing, ...values }, values, venueId)
+    if (table === 'devices') {
+      if (operation === 'create') {
+        const checkout = ['checkout', 'hybrid'].includes(values.device_mode)
+        values = { is_active: true, can_take_orders: values.device_mode !== 'kds', can_take_payments: checkout, can_open_cash_session: checkout, can_close_cash_session: checkout, can_manage_cash: checkout, ...values, id: randomUUID() }
+      }
+      values = await this.deviceValues({ ...existing, ...values }, values, venueId)
+    }
     if (table === 'production_destinations' && values.is_active !== false && !(values.kds_enabled ?? existing?.kds_enabled) && !(values.printer_id ?? existing?.printer_id)) throw new TickitError('DESTINATION_OUTPUT', 'Un destino activo necesita KDS o impresora.')
     let query
     if (operation === 'create') query = this.db.from(table).insert({ ...values, ...(def.scope !== 'platform' ? { tenant_id: this.config.tenantId } : {}), ...(venueId ? { venue_id: venueId } : {}) })
     else query = this.scoped(table, this.db.from(table).update(values).eq('id', input.id), venueId)
-    const { data } = await this.result(query.select(columnsFor(table).join(',')).single(), true)
+    let data
+    try { ({ data } = await this.result(query.select(columnsFor(table).join(',')).single(), true)) }
+    catch (error) {
+      if (table === 'devices' && operation === 'create' && error instanceof TickitError && error.details?.outcome_unknown) error.details.device_id = values.id
+      throw error
+    }
+    if (table === 'devices' && operation === 'create') {
+      try { return { ...this.sanitize(data), access: await provisionDeviceCredentials(this, { device_id: data.id, confirm: true }) } }
+      catch (error) {
+        if (error instanceof TickitError) error.details = { ...error.details, device_id: data.id, device_created: true }
+        throw error
+      }
+    }
     return this.sanitize(data)
   }
   async guardOpenWork(table, existing, values) {
