@@ -114,6 +114,36 @@ Las relaciones siguen correspondiendo a su empresa/local: un producto de un loca
 
 `platform_tenant_configure` recibe `tenant_id`, `name`, `slug`, `max_venues`, `max_devices`, `feature_keys` y `confirm:true`. Sustituye la configuración completa de funciones mediante `update_platform_tenant_config`, usando los marcadores actuales de catálogo de addons y Assist. Conserva las validaciones nativas de uso, límites y facturación; no elude contratos de Stripe. La actualización genérica de empresas no permite modificar límites.
 
+`feature_keys` acepta únicamente las claves actuales de complementos que publica el esquema de la herramienta. Las funciones básicas (`quick_sale`, `catalog`, `basic_cash`, etc.) ya están incluidas y se rechazan antes de hacer peticiones. También se rechazan alias antiguos como `discounts`: en la función SQL ese alias activa `promotions`, mientras los descuentos manuales básicos no requieren complemento. Los límites de dispositivos se indican con `max_devices`, sin enviar `multi_device`. Los marcadores internos de versión se añaden automáticamente.
+
+Para el caso de un local, dos TPV, restaurante y analítica avanzada, los campos de configuración son:
+
+```json
+{
+  "max_venues": 1,
+  "max_devices": 2,
+  "feature_keys": ["restaurant", "analytics_advanced"]
+}
+```
+
+Completa también `tenant_id`, `name`, `slug` y `confirm:true`. Esta herramienta configura derechos operativos; no contrata un plan comercial llamado Pro ni modifica una suscripción de facturación. `tickit_pos_capabilities` y `tickit-pos://capabilities` incluyen `tenant_configuration` con claves, ejemplo, semántica de reemplazo y migración requerida.
+
+Antes de escribir se comprueba el catálogo del staging configurado: debe incluir `tickit_assist`, y los complementos solicitados deben existir, estar activos y tener `is_core:false`. La presencia de esa fila no certifica que la función SQL esté actualizada. Los errores de contrato se devuelven sin cuerpos privados de Supabase y sin reintentos:
+
+| Código | Acción |
+| --- | --- |
+| `TENANT_CONFIG_MIGRATION_REQUIRED` | No se intentó escribir. El catálogo no incluye Assist; comprueba la migración `20261005225011_tickit_assist.sql` en ese staging. |
+| `TENANT_ADDON_UNAVAILABLE` | No se intentó escribir. Revisa las claves indicadas y su estado en el catálogo. |
+| `TENANT_CONFIG_CONTRACT_MISMATCH` | La función rechazó con `22023` una petición de claves actuales con sus marcadores. Comprueba la función desplegada antes de repetir; no se eliminan complementos ni marcadores como alternativa automática. |
+
+Un administrador puede inspeccionar la función desplegada con esta consulta de solo lectura en la base de staging:
+
+```sql
+select pg_get_functiondef('public.update_platform_tenant_config(uuid,text,text,integer,integer,text[])'::regprocedure);
+```
+
+Compara su validación de claves y marcadores con la migración requerida del monorepo POS. Actualiza el MCP y refresca el catálogo del cliente después del despliegue; no apliques migraciones a otra base por asumir que la etiqueta `staging` identifica el destino.
+
 Para incorporar un negocio puedes crear la empresa con `tenants_create`, su local con `venues_create` y su propietario con `users_create`. El local comienza con catálogo custom vacío. Son pasos independientes, no una transacción única. `tenants_delete` elimina la empresa y sus datos según las cascadas de Postgres, conserva las cuentas Auth y bloquea si existen cajas/comandas abiertas.
 
 ## Usuarios y accesos
@@ -198,6 +228,8 @@ Las herramientas de imagen registran archivos existentes bajo `<tenant>/<venue>/
 `pnpm test:mcp` verifica Orbit con PocketBase aislado, negociación MCP, permisos por módulo y SDK real de Supabase con transporte simulado. Cubre administración global, cuentas compartidas, superadmins, cambios de rol, compensaciones, filtros, integridad de referencias y operaciones concurrentes en distintas empresas.
 
 `tests/fixtures/tickit-catalog.sql` conserva un snapshot identificado del SQL del POS. PGlite ejecuta esos RPC reales y comprueba formatos, céntimos, rollback y coherencia de local. Los helpers de identidad se sustituyen solo en la base aislada de pruebas.
+
+`tests/fixtures/tickit-tenant-config.sql` conserva la función exacta de configuración y el SHA256 de su migración de origen. PGlite ejecuta la petición generada por el servicio MCP y verifica complementos, límites, aislamiento entre empresas y rechazo atómico de funciones básicas con `22023`.
 
 La implementación no despliega servicios, aplica migraciones ni utiliza credenciales reales. Configura el entorno, redespliega y ejecuta `alteil_module_health` para comprobar tu staging.
 

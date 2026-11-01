@@ -57,6 +57,10 @@ test('stdio exposes administrative Tickit tools without Orbit or Express credent
   for (const name of ['tickit_pos_users_create', 'tickit_pos_access_grant', 'tickit_pos_products_create', 'tickit_pos_devices_create']) assert.ok(tools.some((tool) => tool.name === name), name)
   const ownerInput = tools.find((tool) => tool.name === 'tickit_pos_users_create').inputSchema
   for (const field of ['email', 'password', 'role', 'tenant_id', 'confirm']) assert.ok(ownerInput.properties?.[field], field)
+  const addonInput = tools.find((tool) => tool.name === 'tickit_pos_platform_tenant_configure').inputSchema.properties.feature_keys
+  assert.ok(addonInput.items.enum.includes('restaurant'))
+  assert.ok(addonInput.items.enum.includes('analytics_advanced'))
+  for (const key of ['catalog', 'quick_sale', 'discounts', '__assist_catalog_v1']) assert.ok(!addonInput.items.enum.includes(key))
   assert.ok(!tools.some((tool) => tool.name.startsWith('orbit_') || tool.name === 'tickit_pos_order_submit'))
   const modules = await call(client, 'alteil_modules')
   assert.equal(modules.modules[0].backend, 'supabase')

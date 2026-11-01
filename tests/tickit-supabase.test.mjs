@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { TickitPosService, readTickitConfig, tickitError } from '../mcp/modules/tickit-pos/service.mjs'
-import { userCreateSchema, entityDataSchema } from '../mcp/modules/tickit-pos/schema.mjs'
+import { userCreateSchema, entityDataSchema, tenantAddonKeys } from '../mcp/modules/tickit-pos/schema.mjs'
 import { catalogCommands } from '../mcp/modules/tickit-pos/catalog.mjs'
 import { createSupabaseFixture, tickitEnv, serviceRoleKey, ids } from './helpers/tickit-supabase.mjs'
 
@@ -14,6 +14,7 @@ const product = () => ({ venue_id: ids.venue, confirm: true, data: { type: 'stan
 const newUser = (role = 'manager') => ({ email: `${role}@example.com`, password: 'Test-only-password-123', full_name: 'Test user', role,
   ...(['owner', 'manager', 'cashier'].includes(role) ? { tenant_id: ids.tenant } : {}),
   venue_ids: role === 'manager' ? [ids.venue] : [], ...(role === 'cashier' ? { device_id: ids.device } : {}), confirm: true })
+const tenantConfig = (feature_keys = ['restaurant', 'analytics_advanced']) => ({ tenant_id: ids.tenant, name: 'Pro example', slug: 'pro-example', max_venues: 1, max_devices: 2, feature_keys, confirm: true })
 
 test('service_role lists across the platform; tenant and venue are optional target filters', async () => {
   const { service, state, rows } = setup({ TICKIT_POS_TENANT_ID: ids.tenant, TICKIT_POS_VENUE_ID: ids.venue })
@@ -76,6 +77,79 @@ test('companies can be created, configured, deactivated and administered while i
   await assert.rejects(service.execute('tenants', 'delete', { id: tenant.id, confirm: true }), /Cierra las cajas/)
   rows('cash_sessions').length = 0
   assert.equal((await service.execute('tenants', 'delete', { id: tenant.id, confirm: true })).auth_accounts_deleted, false)
+})
+
+test('tenant configuration sends only canonical addons and exposes its replacement contract', async () => {
+  const { service, state } = setup()
+  assert.deepEqual((await service.capabilities()).tenant_configuration.addon_keys, tenantAddonKeys)
+  await service.configureTenant(tenantConfig(['restaurant', 'analytics_advanced', 'restaurant']))
+  const writes = state.requests.filter((request) => request.method === 'POST')
+  assert.equal(writes.length, 1)
+  assert.deepEqual(writes[0].body.p_feature_keys, ['restaurant', 'analytics_advanced', '__addon_catalog_v2', '__assist_catalog_v1'])
+  assert.equal(writes[0].body.p_max_venues, 1)
+  assert.equal(writes[0].body.p_max_devices, 2)
+})
+
+test('core features, obsolete aliases and version markers are rejected before any request', async () => {
+  const { service, state } = setup()
+  for (const key of ['quick_sale', 'catalog', 'basic_cash', 'manual_discounts', 'discounts', 'inventory_recipes', 'multi_device', 'unknown', '__assist_catalog_v1']) {
+    await assert.rejects(service.configureTenant(tenantConfig([key])), (error) => error.issues.some((issue) => issue.path[0] === 'feature_keys'))
+  }
+  assert.equal(state.requests.length, 0)
+})
+
+test('missing Assist migration and unavailable addons block configuration before writes', async () => {
+  const missing = setup()
+  missing.rows('platform_features').splice(missing.rows('platform_features').findIndex((feature) => feature.key === 'tickit_assist'), 1)
+  await assert.rejects(missing.service.configureTenant(tenantConfig()), (error) => error.code === 'TENANT_CONFIG_MIGRATION_REQUIRED' && error.details.write_attempted === false)
+  assert.ok(missing.state.requests.every((request) => request.method === 'GET'))
+  for (const change of ['missing', 'inactive', 'core']) {
+    const { service, state, rows } = setup()
+    const features = rows('platform_features')
+    const index = features.findIndex((feature) => feature.key === 'restaurant')
+    if (change === 'missing') features.splice(index, 1)
+    else if (change === 'inactive') features[index].is_active = false
+    else features[index].is_core = true
+    await assert.rejects(service.configureTenant(tenantConfig()), (error) => error.code === 'TENANT_ADDON_UNAVAILABLE' && error.details.feature_keys[0] === 'restaurant')
+    assert.ok(state.requests.every((request) => request.method === 'GET'))
+  }
+})
+
+test('a stale configuration RPC returns a safe actionable error without retrying writes', async () => {
+  const fixture = createSupabaseFixture()
+  let attempts = 0
+  const service = new TickitPosService(readTickitConfig(tickitEnv), { fetchImpl: async (url, options) => {
+    if (new URL(url).pathname.endsWith('/update_platform_tenant_config')) {
+      attempts++
+      return new Response(JSON.stringify({ code: '22023', message: `private ${serviceRoleKey}`, details: 'private SQL' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+    }
+    return fixture.fetchImpl(url, options)
+  } })
+  await assert.rejects(service.configureTenant(tenantConfig()), (error) => {
+    assert.equal(error.code, 'TENANT_CONFIG_CONTRACT_MISMATCH')
+    assert.equal(error.details.cause_code, 'SUPABASE_22023')
+    assert.equal(error.details.required_migration, '20261005225011_tickit_assist.sql')
+    assert.ok(!JSON.stringify(tickitError(error)).includes('private'))
+    return true
+  })
+  assert.equal(attempts, 1)
+  assert.equal(fixture.rows('tenants')[0].name, 'Staging')
+})
+
+test('configuration keeps read-only and confirmation guards and never retries uncertain writes', async () => {
+  const readOnly = setup({ TICKIT_POS_READ_ONLY: 'true' })
+  await assert.rejects(readOnly.service.configureTenant(tenantConfig()), (error) => error.code === 'READ_ONLY')
+  assert.equal(readOnly.state.requests.length, 0)
+  const fixture = createSupabaseFixture()
+  let attempts = 0
+  const service = new TickitPosService(readTickitConfig(tickitEnv), { fetchImpl: async (url, options) => {
+    if (new URL(url).pathname.endsWith('/update_platform_tenant_config')) { attempts++; throw new TypeError('fetch failed') }
+    return fixture.fetchImpl(url, options)
+  } })
+  await assert.rejects(service.configureTenant({ ...tenantConfig(), confirm: false }))
+  assert.equal(fixture.state.requests.length, 0)
+  await assert.rejects(service.configureTenant(tenantConfig()), (error) => error.details.outcome_unknown === true)
+  assert.equal(attempts, 1)
 })
 
 test('catalog uses transactional RPC and links every created variant to its sale format', async () => {

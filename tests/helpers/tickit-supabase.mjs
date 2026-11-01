@@ -11,6 +11,7 @@ export function createSupabaseFixture() {
     products: [{ id: ids.product, tenant_id: ids.tenant, venue_id: ids.venue, name: 'Existing product', is_active: true }],
     catalog_sale_formats: [{ id: ids.format, tenant_id: ids.tenant, venue_id: ids.venue, name: 'Unidad', is_active: true }],
     devices: [{ id: ids.device, tenant_id: ids.tenant, venue_id: ids.venue, name: 'Terminal', device_mode: 'checkout', is_active: true, active_cash_session_id: null }],
+    platform_features: ['analytics_advanced', 'restaurant', 'reservations', 'production', 'inventory', 'costing', 'purchases', 'document_ai', 'promotions', 'cashlogy', 'tickit_assist'].map((key) => ({ key, is_core: false, is_active: true })),
   }))
   const state = { tables, users: new Map(), requests: [], fail: null, dropAfter: null }
   const rows = (table) => { if (!tables.has(table)) tables.set(table, []); return tables.get(table) }

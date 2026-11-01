@@ -103,7 +103,14 @@ export const accessGrantSchema = z.object({ user_id: uuid, tenant_id: uuid, role
   if (input.role !== 'cashier' && input.device_id) ctx.addIssue({ code: 'custom', message: 'device_id solo se aplica a cashiers.' })
 })
 
+export const tenantAddonKeys = ['analytics_advanced', 'restaurant', 'reservations', 'production', 'inventory', 'costing', 'purchases', 'document_ai', 'promotions', 'cashlogy', 'tickit_assist']
+export const tenantConfigContract = {
+  addon_keys: tenantAddonKeys, feature_keys_mode: 'replace_all_addons', core_features_included: true, legacy_aliases_accepted: false,
+  required_migration: '20261005225011_tickit_assist.sql',
+  example: { max_venues: 1, max_devices: 2, feature_keys: ['restaurant', 'analytics_advanced'] },
+}
+
 export const tenantConfigureSchema = z.object({ tenant_id: uuid, name, slug: entities.tenants.fields.slug,
   max_venues: entities.tenants.fields.max_venues, max_devices: entities.tenants.fields.max_devices,
-  feature_keys: z.array(z.string().regex(/^[a-z][a-z0-9_]*$/).max(80)).max(100),
+  feature_keys: z.array(z.enum(tenantAddonKeys)).max(100).describe('Lista completa de complementos. Las funciones básicas están incluidas y no se envían. Usa claves actuales; discounts es un alias antiguo de promociones avanzadas, no de descuentos manuales. Para restaurante y analítica avanzada: ["restaurant","analytics_advanced"]. Los marcadores de versión se añaden automáticamente.'),
   feature_catalog_version: z.literal(2).default(2), assist_catalog_version: z.literal(1).default(1), ...confirmInput }).strict()

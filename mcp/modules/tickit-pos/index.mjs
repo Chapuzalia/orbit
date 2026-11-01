@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { TickitPosService, readTickitConfig, tickitError } from './supabase-service.mjs'
-import { uuid, tenantInput, venueInput, confirmInput, entities, entityDataSchema, listSchema, userCreateSchema, userUpdateSchema, accessGrantSchema, tenantConfigureSchema } from './admin-schema.mjs'
+import { uuid, tenantInput, venueInput, confirmInput, entities, entityDataSchema, listSchema, userCreateSchema, userUpdateSchema, accessGrantSchema, tenantConfigureSchema, tenantConfigContract } from './admin-schema.mjs'
 import { catalogCommands } from './catalog.mjs'
 
 export function createTickitPosModule(service) {
@@ -23,7 +23,7 @@ export function createTickitPosModule(service) {
             schema, (args) => service.execute(entity, operation, args), { readOnly: ['list', 'get'].includes(operation), destructive: ['update', 'delete'].includes(operation), idempotent: operation === 'update' })
         }
       }
-      register('tickit_pos_platform_tenant_configure', 'Actualiza nombre, slug, límites y lista completa de funciones de cualquier empresa con el RPC update_platform_tenant_config. Conserva validaciones de uso, plan y facturación. feature_keys reemplaza la configuración anterior.', tenantConfigureSchema, (args) => service.configureTenant(args), { destructive: true })
+      register('tickit_pos_platform_tenant_configure', 'Actualiza nombre, slug, límites y conjunto completo de complementos mediante update_platform_tenant_config. feature_keys reemplaza los complementos anteriores; las funciones básicas ya están incluidas y no se envían. Usa claves actuales: discounts no es descuento manual y se rechaza. Para restaurante y analítica avanzada usa ["restaurant","analytics_advanced"], con los límites acordados. No contrata un plan de facturación. Conserva validaciones de uso y facturación; requiere la migración de Tickit Assist.', tenantConfigureSchema, (args) => service.configureTenant(args), { destructive: true })
       for (const [command, def] of Object.entries(catalogCommands)) {
         register(`tickit_pos_${command}`, `Ejecuta ${command} en el local indicado mediante su RPC transaccional. priceCents/supplementCents son céntimos enteros. Requiere confirm=true.`,
           z.object({ venue_id: uuid, data: def.schema, ...confirmInput }).strict(), (args) => service.catalogCommand(command, args), { destructive: !command.endsWith('_create') })
@@ -36,7 +36,7 @@ export function createTickitPosModule(service) {
       register('tickit_pos_access_grant', 'Concede, reactiva o cambia rol owner/manager/cashier en el tenant_id indicado. Admite cuentas compartidas y superadmins. Reemplaza locales del manager o dispositivo del cashier. Requiere cerrar trabajo abierto.', accessGrantSchema, (args) => service.users.grant(args), { destructive: true })
       register('tickit_pos_access_revoke', 'Desactiva acceso a una empresa, incluidos owners. Conserva otras membresías, Auth y perfil superadmin; usa users_update para retirar privilegios globales.', z.object({ user_id: uuid, tenant_id: uuid, ...confirmInput }).strict(), ({ user_id, tenant_id, confirm }) => service.users.revoke(user_id, tenant_id, confirm), { destructive: true })
       server.registerResource('tickit-pos-module', 'tickit-pos://capabilities', { description: 'Catálogo de superadmin Tickit POS mediante Supabase.', mimeType: 'application/json' }, async (uri) => ({ contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify({ ...metadata(),
-        tools: catalog, limits: { page_size: 100, response_bytes: 4194304 },
+        tools: catalog, tenant_configuration: tenantConfigContract, limits: { page_size: 100, response_bytes: 4194304 },
         limitations: ['La clave de servicio y el token MCP conceden administración de toda la plataforma.', 'Auth y PostgREST no forman una transacción distribuida; se informa cualquier compensación incompleta.', 'Las tablas económicas se consultan; sus escrituras requieren contratos específicos.', 'Se ejecutan exclusivamente herramientas y RPC declarados.', 'El operador debe configurar la URL y clave del staging correcto.'],
       }) }] }))
     },

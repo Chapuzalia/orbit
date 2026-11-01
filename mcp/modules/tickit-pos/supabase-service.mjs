@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
 import { readBoolean } from '../../core/config.mjs'
-import { uuid, entities, columnsFor, listSchema, entityDataSchema, tenantConfigureSchema } from './admin-schema.mjs'
+import { uuid, entities, columnsFor, listSchema, entityDataSchema, tenantConfigureSchema, tenantConfigContract } from './admin-schema.mjs'
 import { catalogCommands } from './catalog.mjs'
 import { TickitUsers } from './users.mjs'
 
@@ -112,6 +112,7 @@ export class TickitPosService {
     return { connected: true, backend: 'supabase', access: 'platform_superadmin', scope: 'platform', environment: this.config.environment, read_only: this.config.readOnly,
       entities: Object.fromEntries(Object.entries(entities).map(([key, def]) => [key, { operations: def.operations.filter((op) => !this.config.readOnly || ['list', 'get'].includes(op)), fields: columnsFor(key) }])),
       catalog_commands: this.config.readOnly ? [] : Object.keys(catalogCommands), limits: { page_size: 100, response_bytes: 4194304 },
+      tenant_configuration: tenantConfigContract,
     }
   }
   async execute(table, operation, input) {
@@ -267,10 +268,22 @@ export class TickitPosService {
     input = tenantConfigureSchema.parse(input)
     this.assertWrite(input.confirm)
     await this.tenant(input.tenant_id)
-    const { data } = await this.result(this.db.rpc('update_platform_tenant_config', {
+    const { data: features } = await this.result(this.db.from('platform_features').select('key,is_core,is_active'))
+    if (!features?.some((feature) => feature.key === 'tickit_assist')) {
+      throw new TickitError('TENANT_CONFIG_MIGRATION_REQUIRED', 'El catálogo de este staging no incluye Tickit Assist. Comprueba y aplica la migración requerida antes de configurar complementos.', { required_migration: tenantConfigContract.required_migration, write_attempted: false })
+    }
+    const unavailable = input.feature_keys.filter((key) => !features.some((feature) => feature.key === key && feature.is_core === false && feature.is_active === true))
+    if (unavailable.length) throw new TickitError('TENANT_ADDON_UNAVAILABLE', 'Hay complementos ausentes, inactivos o marcados como básicos en el catálogo de staging.', { feature_keys: [...new Set(unavailable)], write_attempted: false })
+    let result
+    try { result = await this.result(this.db.rpc('update_platform_tenant_config', {
       p_tenant_id: input.tenant_id, p_name: input.name, p_slug: input.slug, p_max_venues: input.max_venues, p_max_devices: input.max_devices,
       p_feature_keys: [...new Set(input.feature_keys), '__addon_catalog_v2', '__assist_catalog_v1'],
-    }).maybeSingle(), true)
+    }).maybeSingle(), true) }
+    catch (error) {
+      if (error instanceof TickitError && error.code === 'SUPABASE_22023') throw new TickitError('TENANT_CONFIG_CONTRACT_MISMATCH', 'La función SQL rechazó claves actuales y sus marcadores de versión. Comprueba la versión desplegada de update_platform_tenant_config; no se reintenta con otra configuración.', { cause_code: error.code, required_migration: tenantConfigContract.required_migration })
+      throw error
+    }
+    const { data } = result
     if (!data) throw new TickitError('TENANT_UNAVAILABLE', 'La empresa de destino no existe.')
     return this.sanitize(data)
   }
