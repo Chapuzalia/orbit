@@ -78,7 +78,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-svh bg-background lg:grid-cols-[0.92fr_1.08fr]">
+    <div className="grid min-h-svh bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] lg:grid-cols-[0.92fr_1.08fr]">
       <div className="flex w-full flex-col justify-center px-6 py-10 sm:px-10 lg:px-16">
         <div className="mx-auto w-full max-w-sm">
           <Logo className="mb-10" markClassName="h-10 w-10 rounded-xl" textClassName="text-2xl" />

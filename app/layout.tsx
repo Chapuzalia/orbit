@@ -8,15 +8,24 @@ export const metadata: Metadata = {
   description:
     'Panel unificado para gestionar clientes, facturación, credenciales y servidores VPS.',
   generator: 'v0.app',
+  applicationName: 'Orbit',
   icons: {
     icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
-    apple: '/icon.svg',
+    apple: '/apple-icon.png',
+  },
+  // Home-screen launch on iOS opens full screen, without Safari's bars.
+  appleWebApp: {
+    capable: true,
+    title: 'Orbit',
+    statusBarStyle: 'black-translucent',
   },
 }
 
 export const viewport: Viewport = {
   colorScheme: 'dark',
   themeColor: '#100c0f',
+  // Lets the page draw under the notch; the shell pads itself with safe-area insets.
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({
@@ -31,6 +40,8 @@ export default function RootLayout({
       className="dark bg-background"
     >
       <head>
+        {/* Next only emits mobile-web-app-capable; iOS before 16.4 still needs the apple- name for standalone. */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta
           name="sable-verify"
           content="sable-verify-b2cad1533082a7eac1de5f18ab9a3614"

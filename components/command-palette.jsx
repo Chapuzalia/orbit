@@ -1,11 +1,14 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ArrowRight } from 'lucide-react'
 import { NAV_ITEMS } from '@/lib/constants'
 import { useAppData } from '@/lib/data-context'
 import { cn } from '@/lib/utils'
+
+// Lower-case and drop accents so "martinez" finds "Martínez".
+const fold = (text) => (text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 export function CommandPalette({ open, onOpenChange }) {
   const router = useRouter()
@@ -15,32 +18,38 @@ export function CommandPalette({ open, onOpenChange }) {
   const inputRef = useRef(null)
 
   const results = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const nav = NAV_ITEMS.map((n) => ({
-      type: 'Página',
-      label: n.label,
-      href: n.href,
-    }))
+    const q = fold(query.trim())
+    const nav = NAV_ITEMS.map((n) => ({ type: 'Página', label: n.label, href: n.href, search: [n.label] }))
     const cli = clients.map((c) => ({
       type: 'Cliente',
       label: c.name,
+      detail: [c.legalName !== c.name && c.legalName, c.contact, c.email].filter(Boolean).join(' · '),
       href: `/clients/${c.id}`,
+      search: [c.name, c.legalName, c.contact, c.email, c.taxId, c.phone],
     }))
-    const reps = salesReps.map((rep) => ({ type: 'Comercial', label: rep.name, href: '/sales-reps' }))
-    const all = [...nav, ...cli, ...reps]
-    if (!q) return all.slice(0, 8)
-    return all.filter((r) => r.label.toLowerCase().includes(q)).slice(0, 10)
+    const reps = salesReps.map((rep) => ({
+      type: 'Comercial',
+      label: rep.name,
+      detail: [rep.email, rep.phone].filter(Boolean).join(' · '),
+      href: `/sales-reps?q=${encodeURIComponent(rep.name)}`,
+      search: [rep.name, rep.email, rep.phone],
+    }))
+    if (!q) return nav
+    const words = q.split(/\s+/)
+    // Every word must appear in some field, so "acme maria" finds Acme's contact María.
+    const hit = (r) => { const text = fold(r.search.filter(Boolean).join(' ')); return words.every((w) => text.includes(w)) }
+    return [...cli.filter(hit), ...reps.filter(hit), ...nav.filter(hit)].slice(0, 12)
   }, [clients, salesReps, query])
 
   useEffect(() => {
     setActive(0)
   }, [query])
 
-  useEffect(() => {
-    if (open) {
-      setQuery('')
-      setTimeout(() => inputRef.current?.focus(), 40)
-    }
+  // Focus before paint so keys typed right after ⌘K land in the input.
+  useLayoutEffect(() => {
+    if (!open) return
+    setQuery('')
+    inputRef.current?.focus()
   }, [open])
 
   function go(item) {
@@ -50,7 +59,10 @@ export function CommandPalette({ open, onOpenChange }) {
   }
 
   function onKeyDown(e) {
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      onOpenChange(false)
+    } else if (e.key === 'ArrowDown') {
       e.preventDefault()
       setActive((a) => Math.min(a + 1, results.length - 1))
     } else if (e.key === 'ArrowUp') {
@@ -97,7 +109,7 @@ export function CommandPalette({ open, onOpenChange }) {
             </li>
           )}
           {results.map((item, i) => (
-            <li key={`${item.type}-${item.label}-${i}`}>
+            <li key={item.href}>
               <button
                 type="button"
                 onMouseEnter={() => setActive(i)}
@@ -107,11 +119,14 @@ export function CommandPalette({ open, onOpenChange }) {
                   active === i ? 'bg-accent text-accent-foreground' : 'text-foreground',
                 )}
               >
-                <span className="flex items-center gap-3">
-                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="w-20 shrink-0 text-xs uppercase tracking-wide text-muted-foreground">
                     {item.type}
                   </span>
-                  <span className="font-medium">{item.label}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{item.label}</span>
+                    {item.detail && <span className="block truncate text-xs text-muted-foreground">{item.detail}</span>}
+                  </span>
                 </span>
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
               </button>

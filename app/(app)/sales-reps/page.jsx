@@ -1,7 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { ChevronDown, Loader2, Pencil, Plus, Search, Trash2, UserMinus, Users } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { EmptyState } from '@/components/empty-state'
@@ -21,7 +22,10 @@ import { useToast } from '@/components/ui/toaster'
 export default function SalesRepsPage() {
   const { salesReps, clients, commissions, deleteSalesRep, assignClientSalesRep } = useAppData()
   const { toast } = useToast()
-  const [query, setQuery] = useState('')
+  const searched = useSearchParams().get('q') || ''
+  const [query, setQuery] = useState(searched)
+  // The search palette links here with ?q=<name>; follow it when already on this page too.
+  useEffect(() => setQuery(searched), [searched])
   const [editor, setEditor] = useState(null)
   const [commissionEditor, setCommissionEditor] = useState(null)
   const [expanded, setExpanded] = useState('')
