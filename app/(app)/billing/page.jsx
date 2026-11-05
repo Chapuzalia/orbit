@@ -45,7 +45,7 @@ export default function BillingPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="stats-row grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard label="Cobrado" value={formatCurrency(paid)} icon={Wallet} tone="chart3" />
         <MetricCard label="MRR" value={formatCurrency(Math.round(mrr))} icon={TrendingUp} tone="primary" delta="+8%" />
         <MetricCard label="Pendiente" value={formatCurrency(pending)} icon={Clock} tone="chart2" />

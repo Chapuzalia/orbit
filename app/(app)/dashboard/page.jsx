@@ -17,7 +17,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={`Buenos dias, ${currentUser?.name?.split(' ')[0] || 'Usuario'}`} description="Clientes, facturacion e infraestructura" />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="stats-row grid grid-cols-2 gap-4 lg:grid-cols-4">
         <MetricCard label="Clientes activos" value={dashboardMetrics.activeClients} icon={Building2} tone="primary" />
         <MetricCard label="Ingresos del mes" value={formatCurrency(dashboardMetrics.monthlyRevenue)} icon={CreditCard} tone="success" />
         <MetricCard label="Facturas pendientes" value={dashboardMetrics.pendingInvoices} icon={FileText} tone="warning" />

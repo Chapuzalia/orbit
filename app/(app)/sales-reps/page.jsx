@@ -57,7 +57,7 @@ export default function SalesRepsPage() {
   }
 
   return (
-    <div className="space-y-6 [--muted-foreground:#5b6b80] dark:[--muted-foreground:#94a3b8]">
+    <div className="space-y-6">
       <PageHeader title="Comerciales" description={`${salesReps.length} ${salesReps.length === 1 ? 'comercial' : 'comerciales'} · ${unassigned.length} ${unassigned.length === 1 ? 'cliente sin comercial' : 'clientes sin comercial'}`}
         actions={<Button onClick={() => setEditor({})}><Plus className="h-4 w-4" />Nuevo comercial</Button>} />
       <p className="max-w-3xl text-sm text-muted-foreground">Configura la comisión de cada cliente desde su cartera: bono de alta y porcentaje recurrente según el plan Tickit POS. Los importes generados se calculan solo con cuotas cobradas registradas, sin IVA.</p>

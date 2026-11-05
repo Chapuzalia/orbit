@@ -6,7 +6,6 @@ import { PageHeader } from '@/components/page-header'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
-import { ThemeToggle } from '@/components/theme-toggle'
 import { useAppData } from '@/lib/data-context'
 import { useToast } from '@/components/ui/toaster'
 
@@ -66,7 +65,6 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
-      <Card><CardHeader><CardTitle>Apariencia</CardTitle></CardHeader><CardContent className="flex items-center justify-between"><span className="text-sm">Tema</span><ThemeToggle /></CardContent></Card>
       <Card>
         <CardHeader><CardTitle>Integraciones</CardTitle></CardHeader>
         <CardContent className="space-y-4">

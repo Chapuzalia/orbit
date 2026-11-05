@@ -11,7 +11,7 @@ const TONE = {
 
 export function Progress({ value = 0, tone = 'primary', className }) {
   return (
-    <div className={cn('h-2 w-full overflow-hidden rounded-full bg-muted', className)}>
+    <div className={cn('progress h-2 w-full overflow-hidden rounded-full bg-muted', className)}>
       <div
         className={cn('h-full rounded-full transition-all', TONE[tone] || TONE.primary)}
         style={{ width: `${Math.min(100, Math.max(0, value))}%` }}

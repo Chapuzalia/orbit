@@ -17,12 +17,12 @@ export function CommandPalette({ open, onOpenChange }) {
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
     const nav = NAV_ITEMS.map((n) => ({
-      type: 'Page',
+      type: 'Página',
       label: n.label,
       href: n.href,
     }))
     const cli = clients.map((c) => ({
-      type: 'Client',
+      type: 'Cliente',
       label: c.name,
       href: `/clients/${c.id}`,
     }))
@@ -66,14 +66,14 @@ export function CommandPalette({ open, onOpenChange }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-background/70 px-4 pt-[12vh] backdrop-blur-sm"
+      className="modal-backdrop fixed inset-0 z-50 flex items-start justify-center bg-black/60 px-4 pt-[12vh] backdrop-blur-sm"
       onMouseDown={() => onOpenChange(false)}
       role="dialog"
       aria-modal="true"
-      aria-label="Command palette"
+      aria-label="Buscar en el workspace"
     >
       <div
-        className="w-full max-w-xl overflow-hidden rounded-xl border border-border bg-popover shadow-2xl"
+        className="modal w-full max-w-xl overflow-hidden rounded-[22px] border border-border bg-popover shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-border px-4">
@@ -83,17 +83,17 @@ export function CommandPalette({ open, onOpenChange }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search pages, clients..."
+            placeholder="Buscar páginas, clientes, comerciales…"
             className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <kbd className="hidden rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground sm:block">
             ESC
           </kbd>
         </div>
-        <ul className="max-h-80 overflow-y-auto p-2">
+        <ul className="command-results max-h-80 overflow-y-auto p-2">
           {results.length === 0 && (
             <li className="px-3 py-6 text-center text-sm text-muted-foreground">
-              No results found.
+              Sin resultados.
             </li>
           )}
           {results.map((item, i) => (
@@ -103,7 +103,7 @@ export function CommandPalette({ open, onOpenChange }) {
                 onMouseEnter={() => setActive(i)}
                 onClick={() => go(item)}
                 className={cn(
-                  'flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm',
+                  'flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm',
                   active === i ? 'bg-accent text-accent-foreground' : 'text-foreground',
                 )}
               >

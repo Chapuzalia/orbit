@@ -38,7 +38,7 @@ export function CommissionEditor({ client, salesRep, onBack }) {
     finally { setBusy(false) }
   }
 
-  return <div className="space-y-6 [--muted-foreground:#5b6b80] dark:[--muted-foreground:#94a3b8]">
+  return <div className="space-y-6">
     <Button variant="ghost" onClick={onBack}><ArrowLeft className="h-4 w-4" />Volver a Comerciales</Button>
     <PageHeader title={`Comisiones · ${client.name}`} description={`Comercial: ${salesRep.name}`} />
     <p className="max-w-3xl text-sm text-muted-foreground">Plan Tickit POS: bono de 1 cuota (0,5 en Basic) tras cobrar las dos primeras mensualidades; 10 % del mes 3 al 60. El bono se revierte si hay baja o impago antes de cobrar la cuarta cuota. Puedes adaptar las condiciones de este cliente.</p>

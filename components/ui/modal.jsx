@@ -71,7 +71,7 @@ export function Modal({ open, onClose, title, description, children, footer, cla
   return createPortal(
     <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center">
       <div
-        className="absolute inset-0 bg-foreground/40 backdrop-blur-sm animate-in fade-in"
+        className="modal-backdrop absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
       <div
@@ -81,7 +81,7 @@ export function Modal({ open, onClose, title, description, children, footer, cla
         aria-label={title}
         tabIndex={-1}
         className={cn(
-          'relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl animate-in slide-in-from-bottom-4 sm:rounded-2xl',
+          'modal relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[22px] border border-border bg-card shadow-xl sm:rounded-[22px]',
           MODAL_SIZES[size] || MODAL_SIZES.md,
           className,
         )}
@@ -120,12 +120,12 @@ export function Sheet({ open, onClose, title, children, side = 'right', classNam
 
   return createPortal(
     <div className="fixed inset-0 z-[90]">
-      <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm animate-in fade-in" onClick={onClose} />
+      <div className="modal-backdrop absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
         className={cn(
-          'absolute top-0 flex h-full w-full max-w-md flex-col border-border bg-card shadow-xl',
+          'modal absolute top-0 flex h-full w-full max-w-md flex-col border-border bg-card shadow-xl',
           side === 'right'
             ? 'right-0 border-l animate-in slide-in-from-right'
             : 'left-0 border-r animate-in slide-in-from-left',

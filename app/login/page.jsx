@@ -174,21 +174,20 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="relative hidden overflow-hidden bg-[var(--brand-navy)] text-white lg:flex">
-        <div className="absolute inset-y-0 left-0 w-px bg-white/10" aria-hidden="true" />
-        <div className="absolute right-12 top-12 h-24 w-24 border-r border-t border-white/10" aria-hidden="true" />
-        <div className="absolute bottom-12 left-12 h-24 w-24 border-b border-l border-white/10" aria-hidden="true" />
+      <div className="relative hidden overflow-hidden bg-card text-foreground border-l border-border lg:flex">
+        <div className="absolute inset-y-0 left-0 w-px bg-border" aria-hidden="true" />
+        <div className="absolute right-12 top-12 h-24 w-24 border-r border-t border-border" aria-hidden="true" />
+        <div className="absolute bottom-12 left-12 h-24 w-24 border-b border-l border-border" aria-hidden="true" />
         <div className="relative z-10 flex w-full flex-col justify-between p-12">
           <Logo
-            markClassName="border-white/10 bg-white shadow-none"
-            textClassName="text-xl text-white"
+            textClassName="text-xl"
           />
           <div className="max-w-xl">
-            <p className="mb-4 text-sm font-medium text-[#7DD3C7]">Orbit para Alteil Solutions</p>
-            <h2 className="max-w-lg text-4xl font-semibold leading-tight text-balance">
+            <p className="mb-4 text-sm font-medium text-primary">Orbit para Alteil Solutions</p>
+            <h2 className="max-w-lg font-display text-5xl uppercase leading-[1.1] text-[color:var(--text-display)] text-balance">
               Clientes, cuentas e infraestructura en un solo lugar.
             </h2>
-            <p className="mt-5 max-w-md text-sm leading-6 text-white/70">
+            <p className="mt-5 max-w-md text-sm leading-6 text-muted-foreground">
               Una interfaz calmada para decidir rapido, detectar riesgos y mantener el trabajo alineado.
             </p>
 
@@ -199,29 +198,29 @@ export default function LoginPage() {
               <PanelStat icon={Activity} label="Alertas abiertas" value="3" delta="-2" accent />
             </div>
 
-            <div className="mt-4 h-28 max-w-xl rounded-lg border border-white/10 bg-white/[0.06] p-4">
-              <div className="mb-3 flex items-center justify-between text-xs text-white/60">
+            <div className="mt-4 h-28 max-w-xl rounded-[22px] border border-border bg-background p-4">
+              <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
                 <span>Ritmo semanal</span>
-                <span className="inline-flex items-center gap-1 text-[#7DD3C7]">
+                <span className="inline-flex items-center gap-1 text-primary">
                   estable <ArrowUpRight className="h-3.5 w-3.5" />
                 </span>
               </div>
               <svg viewBox="0 0 420 72" className="h-16 w-full" fill="none" aria-hidden="true">
                 <path
                   d="M4 57C38 57 38 40 72 40C106 40 106 26 140 26C174 26 174 44 208 44C242 44 242 18 276 18C310 18 310 35 344 35C378 35 378 12 416 12"
-                  stroke="#14B8A6"
+                  stroke="var(--accent)"
                   strokeWidth="4"
                   strokeLinecap="round"
                 />
                 <path
                   d="M4 57C38 57 38 40 72 40C106 40 106 26 140 26C174 26 174 44 208 44C242 44 242 18 276 18C310 18 310 35 344 35C378 35 378 12 416 12V72H4V57Z"
-                  fill="#14B8A6"
+                  fill="var(--accent)"
                   opacity="0.12"
                 />
               </svg>
             </div>
           </div>
-          <p className="text-sm text-white/55">Moderno, fiable y preciso.</p>
+          <p className="text-sm text-muted-foreground">Moderno, fiable y preciso.</p>
         </div>
       </div>
     </div>
@@ -230,17 +229,17 @@ export default function LoginPage() {
 
 function PanelStat({ icon: Icon, label, value, delta, accent = false }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.08] p-4">
+    <div className="rounded-[22px] border border-border bg-background p-4">
       <div className="mb-4 flex items-center justify-between">
-        <span className="flex h-9 w-9 items-center justify-center rounded-md bg-white/10 text-[#7DD3C7]">
+        <span className="flex h-9 w-9 items-center justify-center rounded-md bg-secondary text-primary">
           <Icon className="h-4.5 w-4.5" />
         </span>
-        <span className={accent ? 'text-xs font-medium text-[#FF8A65]' : 'text-xs font-medium text-[#7DD3C7]'}>
+        <span className={accent ? 'text-xs font-medium text-destructive' : 'text-xs font-medium text-primary'}>
           {delta}
         </span>
       </div>
       <p className="text-2xl font-semibold leading-none">{value}</p>
-      <p className="mt-2 text-xs text-white/60">{label}</p>
+      <p className="mt-2 text-xs text-muted-foreground">{label}</p>
     </div>
   )
 }

@@ -17,7 +17,7 @@ export function Avatar({ name = '', color, size = 'sm', className }) {
         SIZES[size],
         className,
       )}
-      style={{ backgroundColor: color || 'oklch(0.54 0.21 268)' }}
+      style={{ backgroundColor: color || 'var(--chart-muted)' }}
       title={name}
       aria-label={name}
     >

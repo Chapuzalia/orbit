@@ -17,25 +17,25 @@ import {
   YAxis,
 } from 'recharts'
 
-// Literal color values (SVG fills don't reliably resolve oklch via CSS vars in
+// Literal color values (SVG fills don't reliably resolve CSS vars in
 // every browser, so we pass concrete colors to Recharts).
 export const CHART_COLORS = {
-  c1: 'oklch(0.58 0.21 268)',
-  c2: 'oklch(0.6 0.16 240)',
-  c3: 'oklch(0.62 0.16 150)',
-  c4: 'oklch(0.78 0.15 75)',
-  c5: 'oklch(0.6 0.22 300)',
+  c1: '#ffc1d8',
+  c2: '#bf809b',
+  c3: '#afd5bb',
+  c4: '#dfba76',
+  c5: '#f3a29b',
 }
 const PALETTE = [CHART_COLORS.c1, CHART_COLORS.c2, CHART_COLORS.c3, CHART_COLORS.c4, CHART_COLORS.c5]
 
 const axisProps = {
-  stroke: 'oklch(0.6 0.02 265)',
+  stroke: '#bda6b0',
   fontSize: 12,
   tickLine: false,
   axisLine: false,
 }
 
-const grid = <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.9 0.01 265 / 0.5)" vertical={false} />
+const grid = <CartesianGrid strokeDasharray="3 3" stroke="#342830" vertical={false} />
 
 function ChartTooltip({ active, payload, label, prefix = '', suffix = '' }) {
   if (!active || !payload || payload.length === 0) return null
@@ -67,12 +67,12 @@ export function RevenueAreaChart({ data }) {
       <AreaChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
         <defs>
           <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="oklch(0.58 0.21 268)" stopOpacity={0.35} />
-            <stop offset="95%" stopColor="oklch(0.58 0.21 268)" stopOpacity={0} />
+            <stop offset="5%" stopColor="#ffc1d8" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="#ffc1d8" stopOpacity={0} />
           </linearGradient>
           <linearGradient id="rec" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="oklch(0.62 0.16 150)" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="oklch(0.62 0.16 150)" stopOpacity={0} />
+            <stop offset="5%" stopColor="#afd5bb" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#afd5bb" stopOpacity={0} />
           </linearGradient>
         </defs>
         {grid}
@@ -83,7 +83,7 @@ export function RevenueAreaChart({ data }) {
           type="monotone"
           name="Ingresos"
           dataKey="ingresos"
-          stroke="oklch(0.58 0.21 268)"
+          stroke="#ffc1d8"
           strokeWidth={2}
           fill="url(#rev)"
         />
@@ -91,7 +91,7 @@ export function RevenueAreaChart({ data }) {
           type="monotone"
           name="Recurrente"
           dataKey="recurrente"
-          stroke="oklch(0.62 0.16 150)"
+          stroke="#afd5bb"
           strokeWidth={2}
           fill="url(#rec)"
         />
@@ -108,8 +108,8 @@ export function CategoryBarChart({ data, suffix = '' }) {
         {grid}
         <XAxis dataKey="label" {...axisProps} />
         <YAxis {...axisProps} />
-        <Tooltip cursor={{ fill: 'oklch(0.6 0.02 265 / 0.08)' }} content={<ChartTooltip suffix={suffix} />} />
-        <Bar dataKey="value" name="Total" fill="oklch(0.6 0.16 240)" radius={[4, 4, 0, 0]} maxBarSize={44} />
+        <Tooltip cursor={{ fill: '#ffc1d814' }} content={<ChartTooltip suffix={suffix} />} />
+        <Bar dataKey="value" name="Total" fill="#bf809b" radius={[4, 4, 0, 0]} maxBarSize={44} />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -118,11 +118,11 @@ export function CategoryBarChart({ data, suffix = '' }) {
 // Donut chart: data of { name, value, color? }
 export function StatusDonutChart({ data }) {
   const palette = [
-    'oklch(0.58 0.21 268)',
-    'oklch(0.6 0.16 240)',
-    'oklch(0.62 0.16 150)',
-    'oklch(0.78 0.15 75)',
-    'oklch(0.6 0.22 300)',
+    '#ffc1d8',
+    '#bf809b',
+    '#afd5bb',
+    '#dfba76',
+    '#f3a29b',
   ]
   return (
     <ResponsiveContainer width="100%" height={260}>
@@ -139,7 +139,7 @@ export function StatusDonutChart({ data }) {
             <Cell
               key={i}
               fill={d.color || palette[i % palette.length]}
-              stroke="oklch(1 0 0)"
+              stroke="#1c161b"
               strokeWidth={2}
             />
           ))}
@@ -159,16 +159,16 @@ export function ServerMetricChart({ data, height = 240 }) {
         <XAxis dataKey="t" {...axisProps} interval={3} />
         <YAxis {...axisProps} domain={[0, 100]} />
         <Tooltip content={<ChartTooltip suffix="%" />} />
-        <Line type="monotone" name="CPU" dataKey="cpu" stroke="oklch(0.58 0.21 268)" strokeWidth={2} dot={false} />
-        <Line type="monotone" name="RAM" dataKey="ram" stroke="oklch(0.78 0.15 75)" strokeWidth={2} dot={false} />
-        <Line type="monotone" name="Disco" dataKey="disk" stroke="oklch(0.62 0.16 150)" strokeWidth={2} dot={false} />
+        <Line type="monotone" name="CPU" dataKey="cpu" stroke="#ffc1d8" strokeWidth={2} dot={false} />
+        <Line type="monotone" name="RAM" dataKey="ram" stroke="#dfba76" strokeWidth={2} dot={false} />
+        <Line type="monotone" name="Disco" dataKey="disk" stroke="#afd5bb" strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>
   )
 }
 
 // Mini sparkline area for cards
-export function Sparkline({ data, dataKey = 'value', color = 'oklch(0.58 0.21 268)', height = 48 }) {
+export function Sparkline({ data, dataKey = 'value', color = '#ffc1d8', height = 48 }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
