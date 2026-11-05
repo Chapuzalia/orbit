@@ -3,14 +3,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Bell, LogOut, Menu, PanelLeft, Plus, Search, Settings, User } from 'lucide-react'
+import { Bell, LogOut, Menu, PanelLeft, Plus, Search, Server, Settings, User } from 'lucide-react'
 import { CommandPalette } from '@/components/command-palette'
 import { CreateClientModal } from '@/components/create-entity-modals'
 import { Logo } from '@/components/logo'
 import { Avatar } from '@/components/ui/avatar'
 import { AppDataProvider, useAppData } from '@/lib/data-context'
 import { isAuthenticated, logout } from '@/lib/auth'
-import { GO_KEYS, NAV_ITEMS } from '@/lib/constants'
+import { GO_KEYS, NAV_ITEMS, SERVER_STATUS } from '@/lib/constants'
 import { getNavBadge } from '@/lib/nav-badges'
 import { EASE, play } from '@/lib/motion.mjs'
 import { useDashboardMotion } from '@/lib/use-dashboard-motion'
@@ -68,7 +68,7 @@ function DashboardShell({ children }) {
   const sideRef = useRef(null)
   const toggleRef = useRef(null)
   const navData = { invoices, servers, notifications }
-  const serverIssues = servers.filter((s) => ['warning', 'critical', 'offline'].includes(s.status)).length
+  const serverIssues = servers.filter((s) => SERVER_ISSUES.includes(s.status)).length
 
   useEffect(() => {
     try {
@@ -246,7 +246,7 @@ function DashboardShell({ children }) {
             <Plus size={18} aria-hidden="true" />
             <span>Nuevo cliente</span>
           </button>
-          <NotificationsLink count={notifications.filter((n) => !n.read).length} />
+          <NotificationsMenu />
           <AccountMenu />
         </header>
         <main ref={mainRef} className="dashboard-main">
@@ -259,25 +259,11 @@ function DashboardShell({ children }) {
   )
 }
 
-function NotificationsLink({ count }) {
-  return (
-    <Link
-      href="/notifications"
-      className="top-icon"
-      aria-label={count ? `Notificaciones, ${count} sin leer` : 'Notificaciones'}
-    >
-      <Bell size={18} aria-hidden="true" />
-      {count > 0 && <span className="top-dot" aria-hidden="true" />}
-    </Link>
-  )
-}
+const SERVER_ISSUES = ['critical', 'offline', 'warning']
 
-function AccountMenu() {
-  const router = useRouter()
-  const { currentUser: user } = useAppData()
+// Closes a <details> menu on outside pointerdown and on Escape (focus returns to its summary).
+function useDetailsMenu() {
   const ref = useRef(null)
-  const [loggingOut, setLoggingOut] = useState(false)
-
   useEffect(() => {
     const details = ref.current
     const outside = (e) => {
@@ -295,8 +281,66 @@ function AccountMenu() {
       document.removeEventListener('keydown', escape)
     }
   }, [])
+  return [ref, () => (ref.current.open = false)]
+}
 
-  const close = () => (ref.current.open = false)
+// Server incidents are live state (from each server's status), not stored notifications, so they are counted here.
+function NotificationsMenu() {
+  const { servers, notifications } = useAppData()
+  const [ref, close] = useDetailsMenu()
+  const incidents = servers
+    .filter((server) => SERVER_ISSUES.includes(server.status))
+    .sort((a, b) => SERVER_ISSUES.indexOf(a.status) - SERVER_ISSUES.indexOf(b.status))
+  const unread = notifications.filter((n) => !n.read)
+  const count = incidents.length + unread.length
+  const label = count ? `Notificaciones, ${count} pendientes` : 'Notificaciones'
+
+  return (
+    <details ref={ref} className="dashboard-account">
+      <summary className="top-icon" aria-label={label}>
+        <Bell size={18} aria-hidden="true" />
+        {count > 0 && (
+          <span className="top-count" data-tone={incidents.length ? 'danger' : undefined} aria-hidden="true">
+            {count > 99 ? '99+' : count}
+          </span>
+        )}
+      </summary>
+      <div className="dashboard-dropdown top-notifications">
+        <p className="px-3 py-2 text-sm font-semibold">Notificaciones</p>
+        {count === 0 && <p className="px-3 pb-3 text-sm text-muted-foreground">Todo en orden.</p>}
+        {incidents.map((server) => (
+          <Link key={server.id} href={`/servers/${server.id}`} onClick={close} className="top-note">
+            <Server size={16} aria-hidden="true" className={server.status === 'warning' ? 'text-warning' : 'text-destructive'} />
+            <span>
+              <b>{server.name}</b>
+              {SERVER_STATUS[server.status]?.label}
+              {server.status !== 'offline' && ` · CPU ${server.cpu}% · RAM ${server.ram}% · Disco ${server.disk}%`}
+            </span>
+          </Link>
+        ))}
+        {unread.slice(0, 4).map((n) => (
+          <Link key={n.id} href="/notifications" onClick={close} className="top-note">
+            <Bell size={16} aria-hidden="true" className="text-primary" />
+            <span>
+              <b>{n.title}</b>
+              {n.body}
+            </span>
+          </Link>
+        ))}
+        <hr />
+        <Link href="/notifications" onClick={close}>
+          Ver todas las notificaciones
+        </Link>
+      </div>
+    </details>
+  )
+}
+
+function AccountMenu() {
+  const router = useRouter()
+  const { currentUser: user } = useAppData()
+  const [ref, close] = useDetailsMenu()
+  const [loggingOut, setLoggingOut] = useState(false)
 
   async function handleLogout() {
     if (loggingOut) return

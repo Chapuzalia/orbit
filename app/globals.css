@@ -498,15 +498,72 @@
 .app-shell .top-icon:hover {
   background: var(--surface-elevated);
 }
-.top-icon .top-dot {
+.top-count {
   position: absolute;
-  top: 9px;
-  right: 10px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  top: -3px;
+  right: -3px;
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
   background: var(--accent);
-  box-shadow: 0 0 0 2px var(--surface);
+  color: var(--accent-text);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--background);
+  animation: dashboard-badge 600ms cubic-bezier(0.3, 1.9, 0.5, 1) backwards;
+}
+.top-count[data-tone='danger'] {
+  background: var(--danger);
+}
+@keyframes dashboard-badge {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+.dashboard-dropdown.top-notifications {
+  width: min(340px, calc(100vw - 32px));
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+}
+.dashboard-dropdown > .top-note {
+  align-items: flex-start;
+  min-height: 0;
+  padding: 10px 12px;
+}
+.top-note > svg {
+  flex: none;
+  margin-top: 2px;
+}
+.top-note > span {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.top-note b {
+  display: block;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  /* The bell is not the last button, so on phones the panel spans the top bar instead of hanging off-screen. */
+  .dashboard-account:has(.top-notifications) {
+    position: static;
+  }
+  .dashboard-dropdown.top-notifications {
+    left: 16px;
+    right: 16px;
+    width: auto;
+  }
 }
 .top-search {
   display: flex;
@@ -801,6 +858,7 @@
   .command-results > li > button,
   .app-shell .top-clock b,
   .app-shell .is-flash,
+  .top-count,
   .live-dot {
     animation: none;
   }
